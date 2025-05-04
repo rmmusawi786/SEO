@@ -161,31 +161,79 @@ def app():
                 ai_col1, ai_col2 = st.columns([1, 1])
                 
                 with ai_col1:
+                    time_options = {
+                        "Last 7 Days": 7,
+                        "Last 14 Days": 14,
+                        "Last 30 Days": 30
+                    }
+                    analysis_period = st.select_slider(
+                        "Analysis Period",
+                        options=list(time_options.keys()),
+                        value="Last 7 Days"
+                    )
+                    days = time_options[analysis_period]
+                    
                     if st.button("Generate AI Price Suggestion", type="primary"):
                         with st.spinner("Generating AI suggestion..."):
-                            # Get AI price analysis
-                            analysis = get_price_analysis(product_id)
-                            
-                            if not analysis or 'suggested_price' not in analysis:
-                                st.error("Failed to generate AI price suggestion. Try again later.")
+                            # Check for OpenAI API key
+                            import os
+                            if not os.environ.get("OPENAI_API_KEY"):
+                                st.error("OpenAI API key is required. Please set the OPENAI_API_KEY environment variable.")
                             else:
-                                # Create new suggestion in database
-                                suggested_price = analysis['suggested_price']
-                                rationale = analysis.get('rationale', '')
+                                # Get AI price analysis
+                                analysis = get_price_analysis(product_id, days)
                                 
-                                suggestion_id = add_suggested_price(
-                                    product_id=product_id,
-                                    suggested_price=suggested_price,
-                                    source='ai',
-                                    notes=rationale
-                                )
-                                
-                                if suggestion_id:
-                                    st.success(f"AI suggested price: €{suggested_price:.2f}")
-                                    st.info(f"Rationale: {rationale}")
-                                    st.rerun()
+                                if "error" in analysis:
+                                    st.error(f"Failed to generate AI price suggestion: {analysis['error']}")
+                                elif not analysis or 'suggested_price' not in analysis:
+                                    st.error("Failed to generate AI price suggestion. Try again later.")
                                 else:
-                                    st.error("Failed to save AI suggestion")
+                                    # Create new suggestion in database
+                                    suggested_price = analysis['suggested_price']
+                                    # Combine rationale with other useful analysis data
+                                    full_notes = f"AI PRICE RECOMMENDATION\n\n"
+                                    full_notes += f"Suggested Price: €{suggested_price:.2f}\n\n"
+                                    full_notes += f"Rationale: {analysis.get('rationale', '')}\n\n"
+                                    
+                                    # Add other analysis sections if available
+                                    if 'market_position' in analysis:
+                                        full_notes += f"Market Position: {analysis['market_position']}\n\n"
+                                    if 'recommendations' in analysis:
+                                        full_notes += f"Recommendations: {analysis['recommendations']}\n\n"
+                                    
+                                    suggestion_id = add_suggested_price(
+                                        product_id=product_id,
+                                        suggested_price=suggested_price,
+                                        source='ai',
+                                        notes=full_notes
+                                    )
+                                    
+                                    if suggestion_id:
+                                        st.success(f"AI suggested price: €{suggested_price:.2f}")
+                                        
+                                        # Create an expandable section for the detailed analysis
+                                        with st.expander("View Full AI Analysis"):
+                                            st.markdown("### Key Reasoning")
+                                            st.write(analysis.get('rationale', ''))
+                                            
+                                            if 'market_position' in analysis:
+                                                st.markdown("### Market Position")
+                                                st.write(analysis['market_position'])
+                                            
+                                            if 'recommendations' in analysis:
+                                                st.markdown("### Recommendations")
+                                                st.write(analysis['recommendations'])
+                                                
+                                            if 'price_constraints' in analysis:
+                                                constraints = analysis['price_constraints']
+                                                st.markdown("### Price Constraints")
+                                                st.write(f"Current price: €{constraints['current_price']:.2f}")
+                                                st.write(f"Min allowed: €{constraints['min_allowed_price']:.2f} ({constraints['min_threshold_eur']}€ from current)")
+                                                st.write(f"Max allowed: €{constraints['max_allowed_price']:.2f} (+{constraints['max_threshold_eur']}€ from current)")
+                                        
+                                        st.rerun()
+                                    else:
+                                        st.error("Failed to save AI suggestion")
             
             # Tab 2: Set manual price
             with price_tabs[1]:

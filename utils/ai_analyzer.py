@@ -234,7 +234,7 @@ def analyze_price_data(data, product_id=None):
             "profit_margin_analysis": "How this affects our profit margins versus volume",
             "psychological_factors": "Psychological pricing factors considered",
             "long_term_strategy": "How this price fits into a long-term pricing strategy",
-            "suggested_price": float,
+            "suggested_price": 0.0,
             "rationale": "Comprehensive explanation for the suggested price"
         }
         """
