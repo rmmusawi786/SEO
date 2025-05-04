@@ -12,7 +12,9 @@ from utils.visualizations import (
     create_price_comparison_gauge_chart,
     create_price_trend_forecast,
     create_competitor_price_matrix,
-    create_price_difference_chart
+    create_price_difference_chart,
+    create_price_radar_chart,
+    create_price_parity_chart
 )
 
 def app():
@@ -146,6 +148,7 @@ def app():
                 "Competitive Analysis", 
                 "Price Trends", 
                 "Price Matrix",
+                "Advanced Visualizations",
                 "Data Table"
             ])
             
@@ -272,8 +275,34 @@ def app():
                     "This visualization helps identify patterns in pricing strategies."
                 )
             
-            # Tab 5: Data Table
+            # Tab 5: Advanced Visualizations
             with price_tabs[4]:
+                st.subheader("Advanced Price Visualizations")
+                
+                # Price Radar Chart
+                st.markdown("### Price Radar Comparison")
+                radar_fig = create_price_radar_chart(price_history, product_name)
+                st.plotly_chart(radar_fig, use_container_width=True)
+                
+                st.info(
+                    "The radar chart above provides a normalized view of your price compared to competitors. "
+                    "This visualization makes it easy to see how your pricing relates to each competitor, "
+                    "with percentage differences clearly labeled."
+                )
+                
+                # Price Parity Chart
+                st.markdown("### Price Parity Analysis Over Time")
+                parity_fig = create_price_parity_chart(price_history, product_name)
+                st.plotly_chart(parity_fig, use_container_width=True)
+                
+                st.info(
+                    "The price parity chart uses bubble size to show price magnitude and color to show "
+                    "the percentage difference from your price (blue = lower than yours, red = higher than yours). "
+                    "This visualization helps track price changes across competitors over time."
+                )
+            
+            # Tab 6: Data Table
+            with price_tabs[5]:
                 st.subheader("Raw Price Data")
                 
                 # Create DataFrame for our prices
