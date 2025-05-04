@@ -101,61 +101,55 @@ def app():
                 # Display date range
                 st.caption(f"Analysis period: {analysis['date_range']['start']} to {analysis['date_range']['end']}")
                 
-                # Create card style containers for each section
-                st.subheader("Market Position")
-                st.markdown(f"**{analysis['market_position']}**")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.subheader("Price Trends")
-                    st.write(analysis['price_trends'])
-                
-                with col2:
-                    st.subheader("Competitive Analysis")
-                    st.write(analysis['competitive_analysis'])
-                
-                st.subheader("Recommendations")
-                st.write(analysis['recommendations'])
-                
-                # Suggested price with big display
-                st.subheader("Suggested Price")
+                # Use tabs for all the analysis sections
+                analysis_tabs = st.tabs([
+                    "Price Suggestion", 
+                    "Market Analysis", 
+                    "Price Factors", 
+                    "Detailed Insights"
+                ])
                 
                 # Check if price constraints are available in the analysis
                 has_constraints = "price_constraints" in analysis
                 
-                col1, col2 = st.columns([1, 3])
-                
-                with col1:
-                    st.markdown(f"<h1 style='color:#FF4B4B;'>€{analysis['suggested_price']:.2f}</h1>", unsafe_allow_html=True)
+                with analysis_tabs[0]:
+                    # Suggested price with big display
+                    col1, col2 = st.columns([1, 2])
                     
-                    if has_constraints:
-                        constraints = analysis['price_constraints']
-                        current_price = constraints['current_price']
-                        price_diff = analysis['suggested_price'] - current_price
-                        percent_diff = (price_diff / current_price) * 100
+                    with col1:
+                        st.markdown(f"<h1 style='color:#FF4B4B;'>€{analysis['suggested_price']:.2f}</h1>", unsafe_allow_html=True)
                         
-                        # Color code the difference
-                        if price_diff > 0:
-                            diff_color = "#4CAF50"  # Green for increase
-                            direction = "+"
-                        else:
-                            diff_color = "#FFA500"  # Orange for decrease
-                            direction = ""
+                        if has_constraints:
+                            constraints = analysis['price_constraints']
+                            current_price = constraints['current_price']
+                            price_diff = analysis['suggested_price'] - current_price
+                            percent_diff = (price_diff / current_price) * 100
                             
-                        st.markdown(
-                            f"<p>Current: <b>€{current_price:.2f}</b></p>"
-                            f"<p>Change: <span style='color:{diff_color}'>{direction}{price_diff:.2f} ({direction}{percent_diff:.1f}%)</span></p>",
-                            unsafe_allow_html=True
-                        )
-                
-                with col2:
-                    st.markdown("**Reasoning:**")
-                    st.write(analysis.get('rationale', analysis.get('reasoning', 'No reasoning provided')))
+                            # Color code the difference
+                            if price_diff > 0:
+                                diff_color = "#4CAF50"  # Green for increase
+                                direction = "+"
+                            else:
+                                diff_color = "#FFA500"  # Orange for decrease
+                                direction = ""
+                                
+                            st.markdown(
+                                f"<p>Current: <b>€{current_price:.2f}</b></p>"
+                                f"<p>Change: <span style='color:{diff_color}'>{direction}{price_diff:.2f} ({direction}{percent_diff:.1f}%)</span></p>",
+                                unsafe_allow_html=True
+                            )
                     
+                    with col2:
+                        st.markdown("### Key Rationale")
+                        st.write(analysis.get('rationale', analysis.get('reasoning', 'No reasoning provided')))
+                    
+                    st.subheader("Recommendations")
+                    st.write(analysis['recommendations'])
+                    
+                    # Show price constraints visual
                     if has_constraints:
+                        st.markdown("### Price Threshold Analysis")
                         constraints = analysis['price_constraints']
-                        st.markdown("**Price Constraints:**")
                         
                         # Create a progress bar to show where the suggested price falls within the allowed range
                         min_price = constraints['min_allowed_price']
@@ -168,6 +162,17 @@ def app():
                             current_pos = ((current_price - min_price) / price_range) * 100
                             suggestion_pos = ((analysis['suggested_price'] - min_price) / price_range) * 100
                             
+                            # Create metrics to show min, current, and max allowed prices
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Minimum Price", f"€{min_price:.2f}")
+                            
+                            with col2:
+                                st.metric("Current Price", f"€{current_price:.2f}")
+                            
+                            with col3:
+                                st.metric("Maximum Price", f"€{max_price:.2f}")
+                                
                             st.markdown(
                                 f"<p>Min: <b>€{min_price:.2f}</b> ({constraints['min_threshold_eur']}€ from current)</p>"
                                 f"<p>Max: <b>€{max_price:.2f}</b> (+{constraints['max_threshold_eur']}€ from current)</p>",
@@ -177,6 +182,38 @@ def app():
                             # Show a visual range using Streamlit's progress bar
                             st.progress(suggestion_pos / 100)
                             st.caption(f"Suggested price relative to allowed range (Min → Max)")
+                
+                with analysis_tabs[1]:
+                    st.subheader("Market Position")
+                    st.write(analysis['market_position'])
+                    
+                    st.subheader("Competitive Analysis")
+                    st.write(analysis['competitive_analysis'])
+                    
+                    if 'market_segment_impact' in analysis:
+                        st.subheader("Market Segment Impact")
+                        st.write(analysis['market_segment_impact'])
+                
+                with analysis_tabs[2]:
+                    st.subheader("Price Trends")
+                    st.write(analysis['price_trends'])
+                    
+                    if 'pricing_factors' in analysis:
+                        st.subheader("Key Pricing Factors")
+                        st.write(analysis['pricing_factors'])
+                    
+                    if 'profit_margin_analysis' in analysis:
+                        st.subheader("Profit Margin Analysis")
+                        st.write(analysis['profit_margin_analysis'])
+                
+                with analysis_tabs[3]:
+                    if 'psychological_factors' in analysis:
+                        st.subheader("Psychological Pricing Factors")
+                        st.write(analysis['psychological_factors'])
+                    
+                    if 'long_term_strategy' in analysis:
+                        st.subheader("Long-term Strategy")
+                        st.write(analysis['long_term_strategy'])
                     
                 
                 # Action buttons - these would need implementation in a real app
