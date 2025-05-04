@@ -2,6 +2,37 @@ import sqlite3
 import json
 from utils.database import DB_PATH
 
+def upgrade_products_table():
+    """Upgrade products table to add price threshold columns"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Check if columns already exist
+        cursor.execute("PRAGMA table_info(products)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        columns_to_add = []
+        if 'min_price_threshold' not in columns:
+            columns_to_add.append('min_price_threshold REAL')
+        if 'max_price_threshold' not in columns:
+            columns_to_add.append('max_price_threshold REAL')
+        
+        # Add columns if they don't exist
+        for column_def in columns_to_add:
+            cursor.execute(f"ALTER TABLE products ADD COLUMN {column_def}")
+        
+        conn.commit()
+        if columns_to_add:
+            print("Products table upgraded successfully!")
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"Error upgrading products table: {e}")
+        return False
+    finally:
+        conn.close()
+
 def upgrade_settings_table():
     """Upgrade the settings table schema to support more configuration options"""
     conn = sqlite3.connect(DB_PATH)
@@ -59,7 +90,10 @@ def upgrade_settings_table():
             ('enable_price_alerts', 'true'),
             ('enable_email_reports', 'false'),
             ('enable_trend_forecasting', 'true'),
-            ('theme', 'light')
+            ('theme', 'light'),
+            ('global_min_price_threshold', '5'),  # percentage below current price
+            ('global_max_price_threshold', '15'),  # percentage above current price
+            ('use_global_price_thresholds', 'true')  # use global thresholds or product-specific ones
         ]
         
         for name, value in default_settings:
