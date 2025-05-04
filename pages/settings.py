@@ -206,22 +206,24 @@ def app():
                 help="Apply these thresholds to all products unless they have specific thresholds set"
             )
             
-            min_threshold = settings.get("global_min_price_threshold", 5)
-            new_min_threshold = st.slider(
-                "Minimum Price Threshold (%)",
-                min_value=0,
-                max_value=50,
-                value=int(min_threshold),
-                help="Maximum percentage BELOW current price for suggestions (e.g., 5% means suggestions won't go below 95% of current price)"
+            min_threshold = float(settings.get("global_min_price_threshold", -5))
+            new_min_threshold = st.number_input(
+                "Minimum Price Threshold (€)",
+                min_value=-100.0,
+                max_value=0.0,
+                value=float(min_threshold),
+                step=0.5,
+                help="Maximum amount BELOW current price for suggestions (e.g., -5€ means suggestions won't go more than 5€ below current price)"
             )
             
-            max_threshold = settings.get("global_max_price_threshold", 15)
-            new_max_threshold = st.slider(
-                "Maximum Price Threshold (%)",
-                min_value=0,
-                max_value=50,
-                value=int(max_threshold),
-                help="Maximum percentage ABOVE current price for suggestions (e.g., 15% means suggestions won't go above 115% of current price)"
+            max_threshold = float(settings.get("global_max_price_threshold", 5))
+            new_max_threshold = st.number_input(
+                "Maximum Price Threshold (€)",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(max_threshold),
+                step=0.5,
+                help="Maximum amount ABOVE current price for suggestions (e.g., 5€ means suggestions won't go more than 5€ above current price)"
             )
             
             # Feature toggles

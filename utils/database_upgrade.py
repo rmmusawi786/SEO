@@ -91,8 +91,8 @@ def upgrade_settings_table():
             ('enable_email_reports', 'false'),
             ('enable_trend_forecasting', 'true'),
             ('theme', 'light'),
-            ('global_min_price_threshold', '5'),  # percentage below current price
-            ('global_max_price_threshold', '15'),  # percentage above current price
+            ('global_min_price_threshold', '-5'),  # EUR amount below current price
+            ('global_max_price_threshold', '5'),   # EUR amount above current price
             ('use_global_price_thresholds', 'true')  # use global thresholds or product-specific ones
         ]
         

@@ -54,8 +54,8 @@ def app():
                 from utils.database import get_settings
                 settings = get_settings()
                 use_global_thresholds = settings.get("use_global_price_thresholds", True)
-                global_min_threshold = settings.get("global_min_price_threshold", 5)
-                global_max_threshold = settings.get("global_max_price_threshold", 15)
+                global_min_threshold = float(settings.get("global_min_price_threshold", -5))
+                global_max_threshold = float(settings.get("global_max_price_threshold", 5))
                 
                 # Price threshold settings
                 st.subheader("Price Variation Thresholds")
@@ -76,22 +76,24 @@ def app():
                     col1, col2 = st.columns(2)
                     with col1:
                         st.session_state.min_price_threshold = st.number_input(
-                            "Min Price Threshold (%)",
-                            min_value=0,
-                            max_value=50,
-                            value=st.session_state.min_price_threshold,
-                            help="Maximum percentage BELOW current price for suggestions"
+                            "Min Price Threshold (€)",
+                            min_value=-100.0,
+                            max_value=0.0,
+                            value=float(st.session_state.min_price_threshold),
+                            step=0.5,
+                            help="Maximum amount BELOW current price (-5€ means not more than 5€ below)"
                         )
                     with col2:
                         st.session_state.max_price_threshold = st.number_input(
-                            "Max Price Threshold (%)",
-                            min_value=0,
-                            max_value=50,
-                            value=st.session_state.max_price_threshold,
-                            help="Maximum percentage ABOVE current price for suggestions"
+                            "Max Price Threshold (€)",
+                            min_value=0.0,
+                            max_value=100.0,
+                            value=float(st.session_state.max_price_threshold),
+                            step=0.5,
+                            help="Maximum amount ABOVE current price (5€ means not more than 5€ above)"
                         )
                 else:
-                    st.info(f"Using global thresholds: Min {global_min_threshold}%, Max {global_max_threshold}%")
+                    st.info(f"Using global thresholds: Min {global_min_threshold}€, Max {global_max_threshold}€")
                 
                 # Competitor section
                 st.subheader("Competitor Products (Optional)")
@@ -283,8 +285,8 @@ def app():
                         from utils.database import get_settings
                         settings = get_settings()
                         use_global_thresholds = settings.get("use_global_price_thresholds", True)
-                        global_min_threshold = settings.get("global_min_price_threshold", 5)
-                        global_max_threshold = settings.get("global_max_price_threshold", 15)
+                        global_min_threshold = float(settings.get("global_min_price_threshold", -5))
+                        global_max_threshold = float(settings.get("global_max_price_threshold", 5))
                         
                         # Price threshold settings
                         st.subheader("Price Variation Thresholds")
@@ -311,24 +313,26 @@ def app():
                             col1, col2 = st.columns(2)
                             with col1:
                                 edit_min_threshold = st.number_input(
-                                    "Min Price Threshold (%)",
-                                    min_value=0,
-                                    max_value=50,
-                                    value=int(current_min_threshold),
+                                    "Min Price Threshold (€)",
+                                    min_value=-100.0,
+                                    max_value=0.0,
+                                    value=float(current_min_threshold),
+                                    step=0.5,
                                     key="edit_min_threshold",
-                                    help="Maximum percentage BELOW current price for suggestions"
+                                    help="Maximum amount BELOW current price (-5€ means not more than 5€ below)"
                                 )
                             with col2:
                                 edit_max_threshold = st.number_input(
-                                    "Max Price Threshold (%)",
-                                    min_value=0,
-                                    max_value=50,
-                                    value=int(current_max_threshold),
+                                    "Max Price Threshold (€)",
+                                    min_value=0.0,
+                                    max_value=100.0,
+                                    value=float(current_max_threshold),
+                                    step=0.5,
                                     key="edit_max_threshold",
-                                    help="Maximum percentage ABOVE current price for suggestions"
+                                    help="Maximum amount ABOVE current price (5€ means not more than 5€ above)"
                                 )
                         else:
-                            st.info(f"Using global thresholds: Min {global_min_threshold}%, Max {global_max_threshold}%")
+                            st.info(f"Using global thresholds: Min {global_min_threshold}€, Max {global_max_threshold}€")
                             edit_min_threshold = None
                             edit_max_threshold = None
                         

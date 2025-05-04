@@ -150,8 +150,10 @@ def analyze_price_data(data, product_id=None):
                 max_threshold = float(product_info.iloc[0]['max_price_threshold'])
     
     current_price = data['our_price_stats']['current']
-    min_allowed_price = current_price * (1 - (min_threshold / 100))
-    max_allowed_price = current_price * (1 + (max_threshold / 100))
+    # For absolute EUR values, we just add the threshold to the current price
+    # min_threshold should be negative, max_threshold should be positive
+    min_allowed_price = current_price + min_threshold
+    max_allowed_price = current_price + max_threshold
     
     try:
         # Create the prompt
@@ -182,8 +184,8 @@ def analyze_price_data(data, product_id=None):
         prompt += f"""
         IMPORTANT PRICE CONSTRAINTS:
         Your price suggestions must stay within the following threshold:
-        - Minimum allowed price: {min_allowed_price} ({min_threshold}% below current price)
-        - Maximum allowed price: {max_allowed_price} ({max_threshold}% above current price)
+        - Minimum allowed price: {min_allowed_price} ({min_threshold}€ from current price)
+        - Maximum allowed price: {max_allowed_price} ({max_threshold}€ from current price)
         - Current price: {current_price}
         
         Based on this data, please provide:
@@ -227,8 +229,8 @@ def analyze_price_data(data, product_id=None):
             "current_price": current_price,
             "min_allowed_price": min_allowed_price,
             "max_allowed_price": max_allowed_price,
-            "min_threshold_percent": min_threshold,
-            "max_threshold_percent": max_threshold
+            "min_threshold_eur": min_threshold,
+            "max_threshold_eur": max_threshold
         }
         
         return analysis
