@@ -126,8 +126,18 @@ def analyze_price_data(data, product_id=None):
     global_min_threshold = settings.get("global_min_price_threshold", 5)
     global_max_threshold = settings.get("global_max_price_threshold", 15)
     
-    min_threshold = global_min_threshold
-    max_threshold = global_max_threshold
+    # Ensure thresholds are float values
+    try:
+        min_threshold = float(global_min_threshold)
+    except (ValueError, TypeError):
+        # Default if we can't convert
+        min_threshold = -5.0  # Default negative value
+    
+    try:
+        max_threshold = float(global_max_threshold)
+    except (ValueError, TypeError):
+        # Default if we can't convert
+        max_threshold = 15.0  # Default positive value
     
     # If product_id is provided and global thresholds should not be used, get product-specific thresholds
     if product_id and not use_global_thresholds:
@@ -144,12 +154,20 @@ def analyze_price_data(data, product_id=None):
                       not pd.isna(product_info.iloc[0]['max_price_threshold']))
             
             if has_min:
-                min_threshold = float(product_info.iloc[0]['min_price_threshold'])
+                try:
+                    min_threshold = float(product_info.iloc[0]['min_price_threshold'])
+                except (ValueError, TypeError):
+                    # Keep default value if conversion fails
+                    pass
             
             if has_max:
-                max_threshold = float(product_info.iloc[0]['max_price_threshold'])
+                try:
+                    max_threshold = float(product_info.iloc[0]['max_price_threshold'])
+                except (ValueError, TypeError):
+                    # Keep default value if conversion fails
+                    pass
     
-    current_price = data['our_price_stats']['current']
+    current_price = float(data['our_price_stats']['current'])
     # For absolute EUR values, we just add the threshold to the current price
     # min_threshold should be negative, max_threshold should be positive
     min_allowed_price = current_price + min_threshold
@@ -194,14 +212,30 @@ def analyze_price_data(data, product_id=None):
         3. Specific pricing recommendations to be more competitive
         4. Suggested optimal price and explanation (MUST be between {min_allowed_price} and {max_allowed_price})
         
+        IMPORTANT: Your pricing suggestions should be very well justified. Address the following points in your analysis:
+        - What profit margin is likely at the current and suggested price points
+        - How the new price will affect market perception and customer behavior
+        - Whether the suggested price will impact our sales volume (and how)
+        - Whether we are currently over or under-priced compared to the market
+        - What psychological pricing factors could be considered
+        - How the suggested price relates to product quality perception
+        - What long-term impacts this pricing strategy could have
+        - Whether there are seasonal factors to consider
+        - What market segments will be most affected by the price change
+        
         Format your response as a JSON object with the following structure:
         {
-            "market_position": "Analysis of our position in the market",
-            "price_trends": "Analysis of price trends",
-            "competitive_analysis": "Analysis of competitor pricing strategies",
-            "recommendations": "Actionable pricing recommendations",
+            "market_position": "Detailed analysis of our position in the market",
+            "price_trends": "Analysis of price trends with expected changes",
+            "competitive_analysis": "Thorough analysis of competitor pricing strategies",
+            "recommendations": "Actionable pricing recommendations with predicted impact",
+            "pricing_factors": "Key factors influencing the recommended price",
+            "market_segment_impact": "How different customer segments will react to this price",
+            "profit_margin_analysis": "How this affects our profit margins versus volume",
+            "psychological_factors": "Psychological pricing factors considered",
+            "long_term_strategy": "How this price fits into a long-term pricing strategy",
             "suggested_price": float,
-            "rationale": "Brief explanation for the suggested price (100 words or less)"
+            "rationale": "Comprehensive explanation for the suggested price"
         }
         """
         
