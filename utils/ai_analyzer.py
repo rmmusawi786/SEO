@@ -72,21 +72,26 @@ def prepare_price_data(product_id, days=None):
     # Calculate statistics
     our_prices = [p["price"] for p in data["our_prices"]]
     data["our_price_stats"] = {
-        "min": min(our_prices),
-        "max": max(our_prices),
-        "avg": sum(our_prices) / len(our_prices),
+        "min": min(our_prices) if our_prices else 0,
+        "max": max(our_prices) if our_prices else 0,
+        "avg": sum(our_prices) / len(our_prices) if our_prices else 0,
         "current": our_prices[-1] if our_prices else None
     }
     
-    for competitor, prices in data["competitor_prices"].items():
+    # Create a separate stats dictionary to avoid modifying during iteration
+    competitor_stats = {}
+    for competitor, prices in list(data["competitor_prices"].items()):
         price_values = [p["price"] for p in prices]
         if price_values:
-            data["competitor_prices"][competitor + "_stats"] = {
+            competitor_stats[competitor] = {
                 "min": min(price_values),
                 "max": max(price_values),
                 "avg": sum(price_values) / len(price_values),
                 "current": price_values[-1] if price_values else None
             }
+    
+    # Add the stats to the data separately
+    data["competitor_stats"] = competitor_stats
     
     return data
 
@@ -131,12 +136,8 @@ def analyze_price_data(data):
         Competitor pricing information:
         """
         
-        for competitor, prices in data["competitor_prices"].items():
-            if not competitor.endswith("_stats"):
-                stats_key = competitor + "_stats"
-                if stats_key in data["competitor_prices"]:
-                    stats = data["competitor_prices"][stats_key]
-                    prompt += f"""
+        for competitor, stats in data["competitor_stats"].items():
+            prompt += f"""
         {competitor}:
         - Current price: {stats['current']}
         - Average price: {stats['avg']}
