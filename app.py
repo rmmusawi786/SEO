@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import pandas as pd
 from utils.database import init_db, get_products
+from utils.database_upgrade import upgrade_settings_table
 
 # Set page configuration
 st.set_page_config(
@@ -13,6 +14,10 @@ st.set_page_config(
 
 # Initialize database
 init_db()
+
+# Upgrade database if needed
+with st.spinner("Updating database schema..."):
+    upgrade_settings_table()
 
 # Main app
 def main():

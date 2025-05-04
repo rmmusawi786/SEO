@@ -6,7 +6,8 @@ import time
 import random
 from urllib.parse import urlparse
 import streamlit as st
-from utils.database import get_products, add_price_data, update_last_scrape
+import pandas as pd
+from utils.database import get_products, add_price_data, update_last_scrape, get_settings
 
 def extract_price(text):
     """Extract a price from text by finding numbers with optional decimal points"""

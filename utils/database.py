@@ -249,64 +249,147 @@ def get_price_history(product_id, days=None):
     
     return df
 
-def update_settings(scrape_interval=None, analysis_period=None):
-    """Update application settings"""
+def update_settings(**kwargs):
+    """Update application settings
+    
+    Args:
+        **kwargs: Settings to update, where the key is the setting name and value is the setting value
+    
+    Returns:
+        bool: True if successful
+    """
     conn = get_connection()
     cursor = conn.cursor()
     
-    update_fields = []
-    update_values = []
-    
-    if scrape_interval is not None:
-        update_fields.append("scrape_interval = ?")
-        update_values.append(scrape_interval)
-    
-    if analysis_period is not None:
-        update_fields.append("analysis_period = ?")
-        update_values.append(analysis_period)
-    
-    if update_fields:
-        query = f"UPDATE settings SET {', '.join(update_fields)} WHERE id = 1"
+    try:
+        # Check if we're using the new settings table format
+        cursor.execute("PRAGMA table_info(settings)")
+        columns = [row[1] for row in cursor.fetchall()]
         
-        cursor.execute(query, update_values)
+        if 'name' in columns:
+            # New format (name-value pairs)
+            for setting_name, setting_value in kwargs.items():
+                cursor.execute(
+                    "INSERT OR REPLACE INTO settings (name, value) VALUES (?, ?)",
+                    (setting_name, str(setting_value))
+                )
+        else:
+            # Old format (columns)
+            update_fields = []
+            update_values = []
+            
+            if 'scrape_interval' in kwargs:
+                update_fields.append("scrape_interval = ?")
+                update_values.append(kwargs['scrape_interval'])
+            
+            if 'analysis_period' in kwargs:
+                update_fields.append("analysis_period = ?")
+                update_values.append(kwargs['analysis_period'])
+            
+            if update_fields:
+                query = f"UPDATE settings SET {', '.join(update_fields)} WHERE id = 1"
+                cursor.execute(query, update_values)
+        
         conn.commit()
-    
-    conn.close()
-    return True
+        return True
+    except Exception as e:
+        print(f"Error updating settings: {e}")
+        return False
+    finally:
+        conn.close()
 
 def get_settings():
     """Get application settings"""
     conn = get_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM settings WHERE id = 1")
-    settings = cursor.fetchone()
-    
-    conn.close()
-    
-    if settings:
-        return {
-            "scrape_interval": settings[1],
-            "last_scrape": settings[2],
-            "analysis_period": settings[3]
-        }
-    else:
+    try:
+        # Check if we're using the new settings table format
+        cursor.execute("PRAGMA table_info(settings)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        if 'name' in columns:
+            # New format (name-value pairs)
+            cursor.execute("SELECT name, value FROM settings")
+            settings_rows = cursor.fetchall()
+            
+            settings = {}
+            for name, value in settings_rows:
+                # Try to convert numeric values
+                try:
+                    if value.isdigit():
+                        settings[name] = int(value)
+                    elif value.replace('.', '', 1).isdigit():
+                        settings[name] = float(value)
+                    elif value.lower() in ('true', 'false'):
+                        settings[name] = value.lower() == 'true'
+                    else:
+                        settings[name] = value
+                except (ValueError, AttributeError):
+                    settings[name] = value
+            
+            # Ensure required settings have defaults
+            if 'scrape_interval' not in settings:
+                settings['scrape_interval'] = 3600
+            if 'analysis_period' not in settings:
+                settings['analysis_period'] = 7
+                
+            return settings
+        else:
+            # Old format (columns)
+            cursor.execute("SELECT * FROM settings WHERE id = 1")
+            settings = cursor.fetchone()
+            
+            if settings:
+                return {
+                    "scrape_interval": settings[1],
+                    "last_scrape": settings[2],
+                    "analysis_period": settings[3]
+                }
+            else:
+                return {
+                    "scrape_interval": 3600,
+                    "last_scrape": None,
+                    "analysis_period": 7
+                }
+    except Exception as e:
+        print(f"Error getting settings: {e}")
         return {
             "scrape_interval": 3600,
             "last_scrape": None,
             "analysis_period": 7
         }
+    finally:
+        conn.close()
 
 def update_last_scrape():
     """Update the last scrape timestamp"""
     conn = get_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-    UPDATE settings SET last_scrape = ? WHERE id = 1
-    ''', (datetime.now(),))
-    
-    conn.commit()
-    conn.close()
-    
-    return True
+    try:
+        # Check if we're using the new settings table format
+        cursor.execute("PRAGMA table_info(settings)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        now = datetime.now()
+        
+        if 'name' in columns:
+            # New format (name-value pairs)
+            cursor.execute(
+                "INSERT OR REPLACE INTO settings (name, value) VALUES (?, ?)",
+                ('last_scrape', now.isoformat())
+            )
+        else:
+            # Old format (columns)
+            cursor.execute('''
+            UPDATE settings SET last_scrape = ? WHERE id = 1
+            ''', (now,))
+        
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating last scrape time: {e}")
+        return False
+    finally:
+        conn.close()
