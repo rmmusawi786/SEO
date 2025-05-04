@@ -12,10 +12,8 @@ def app():
     with tab1:
         st.header("Add a New Product to Monitor")
         
-        # Container for form inputs
+        # Form for product inputs
         form_container = st.container()
-        # Container for test buttons and results
-        test_container = st.container()
         
         # Store form values in session state to access them outside the form
         if "product_name" not in st.session_state:
@@ -33,48 +31,8 @@ def app():
                 st.session_state[f"comp_name_{i}"] = ""
             if f"comp_price_{i}" not in st.session_state:
                 st.session_state[f"comp_price_{i}"] = ""
-                
-        # Place test buttons outside the form
-        with test_container:
-            st.markdown("#### Test Selectors")
-            st.markdown("You can test your selectors before submitting the form:")
-            
-            # Test our product selectors
-            test_our_col1, test_our_col2 = st.columns([1, 3])
-            with test_our_col1:
-                test_our = st.button("Test Our Selectors")
-            with test_our_col2:
-                if test_our and st.session_state.our_url and st.session_state.our_price_selector:
-                    result = test_scrape(st.session_state.our_url, st.session_state.our_price_selector, st.session_state.our_name_selector)
-                    if 'error' in result:
-                        st.error(f"Error: {result['error']}")
-                    else:
-                        name = result.get('name', 'N/A')
-                        price = result.get('price', 'N/A')
-                        st.success(f"Name: {name}, Price: {price}")
-                elif test_our:
-                    st.warning("Please enter URL and price selector in the form above first.")
-            
-            # Test competitor selectors
-            st.markdown("#### Test Competitor Selectors")
-            cols = st.columns(5)
-            for i in range(5):
-                with cols[i]:
-                    if st.button(f"Test #{i+1}", key=f"test_comp_{i}"):
-                        if st.session_state[f"comp_url_{i}"] and st.session_state[f"comp_price_{i}"]:
-                            result = test_scrape(
-                                st.session_state[f"comp_url_{i}"], 
-                                st.session_state[f"comp_price_{i}"], 
-                                st.session_state[f"comp_name_{i}"]
-                            )
-                            if 'error' in result:
-                                st.error(f"Error: {result['error']}")
-                            else:
-                                name = result.get('name', 'N/A')
-                                price = result.get('price', 'N/A')
-                                st.success(f"Name: {name}, Price: {price}")
-                        else:
-                            st.warning(f"Please enter URL and price selector for competitor {i+1} first.")
+            if f"comp_display_name_{i}" not in st.session_state:
+                st.session_state[f"comp_display_name_{i}"] = f"Competitor {i+1}"
         
         # Form for product inputs
         with form_container:
@@ -85,12 +43,15 @@ def app():
                 # Our product information
                 st.subheader("Our Product")
                 st.session_state.our_url = st.text_input("Our Product URL", value=st.session_state.our_url)
-                st.session_state.our_name_selector = st.text_input("Name Element Selector (CSS)", 
-                                                     placeholder="e.g., .product-title",
+                st.session_state.our_name_selector = st.text_input("Name Element Selector", 
+                                                     placeholder="CSS selector, ID, or class (e.g., .product-title, #product-name)",
                                                      value=st.session_state.our_name_selector)
-                st.session_state.our_price_selector = st.text_input("Price Element Selector (CSS)", 
-                                                      placeholder="e.g., .product-price",
+                st.session_state.our_price_selector = st.text_input("Price Element Selector", 
+                                                      placeholder="CSS selector, ID, or class (e.g., .price, #productPrice)",
                                                       value=st.session_state.our_price_selector)
+                
+                # Submit button - Test button will be outside the form
+                submit_button = st.form_submit_button("Add Product")
                 
                 # Competitor section
                 st.subheader("Competitor Products (Optional)")
@@ -102,26 +63,98 @@ def app():
                 # Create expandable sections for each competitor
                 for i in range(5):
                     with st.expander(f"Competitor {i+1}", expanded=i==0):
-                        st.session_state[f"comp_url_{i}"] = st.text_input(f"Competitor URL #{i+1}", 
-                                                          key=f"comp_url_input_{i}",
-                                                          value=st.session_state[f"comp_url_{i}"])
-                        st.session_state[f"comp_name_{i}"] = st.text_input(f"Name Element Selector #{i+1} (CSS)", 
-                                                           placeholder="e.g., .product-title", 
-                                                           key=f"comp_name_input_{i}",
-                                                           value=st.session_state[f"comp_name_{i}"])
-                        st.session_state[f"comp_price_{i}"] = st.text_input(f"Price Element Selector #{i+1} (CSS)", 
-                                                            placeholder="e.g., .product-price", 
-                                                            key=f"comp_price_input_{i}",
-                                                            value=st.session_state[f"comp_price_{i}"])
+                        # Competitor name/identifier field
+                        if f"comp_display_name_{i}" not in st.session_state:
+                            st.session_state[f"comp_display_name_{i}"] = f"Competitor {i+1}"
                         
-                        if st.session_state[f"comp_url_{i}"]:
-                            competitor_urls.append(st.session_state[f"comp_url_{i}"])
-                            competitor_selectors[f"name_{i}"] = st.session_state[f"comp_name_{i}"]
-                            competitor_selectors[f"price_{i}"] = st.session_state[f"comp_price_{i}"]
+                        st.session_state[f"comp_display_name_{i}"] = st.text_input(
+                            f"Competitor Name/ID #{i+1}",
+                            placeholder="e.g., Amazon, eBay, Competitor A",
+                            key=f"comp_display_name_input_{i}",
+                            value=st.session_state[f"comp_display_name_{i}"]
+                        )
+                        
+                        st.session_state[f"comp_url_{i}"] = st.text_input(
+                            f"Competitor URL #{i+1}", 
+                            key=f"comp_url_input_{i}",
+                            value=st.session_state[f"comp_url_{i}"]
+                        )
+                        
+                        st.session_state[f"comp_name_{i}"] = st.text_input(
+                            f"Product Name Selector #{i+1}", 
+                            placeholder="CSS selector, ID, or class (e.g., .product-title, #product-name)", 
+                            key=f"comp_name_input_{i}",
+                            value=st.session_state[f"comp_name_{i}"]
+                        )
+                        
+                        st.session_state[f"comp_price_{i}"] = st.text_input(
+                            f"Price Element Selector #{i+1}", 
+                            placeholder="CSS selector, ID, or class (e.g., .price, #productPrice)", 
+                            key=f"comp_price_input_{i}",
+                            value=st.session_state[f"comp_price_{i}"]
+                        )
+                        
+                        # Test buttons will be outside the form
+                
+                # Collect competitor data after all inputs are defined
+                for i in range(5):
+                    if st.session_state[f"comp_url_{i}"] and st.session_state[f"comp_price_{i}"]:
+                        competitor_urls.append(st.session_state[f"comp_url_{i}"])
+                        competitor_selectors[f"display_name_{i}"] = st.session_state[f"comp_display_name_{i}"]
+                        competitor_selectors[f"name_{i}"] = st.session_state[f"comp_name_{i}"]
+                        competitor_selectors[f"price_{i}"] = st.session_state[f"comp_price_{i}"]
                 
                 # Submit button
                 submit_button = st.form_submit_button("Add Product")
             
+            # Test buttons outside the form
+            st.subheader("Test Selectors")
+            
+            # Test our product selectors
+            st.markdown("#### Test Our Product")
+            our_test_col1, our_test_col2 = st.columns([1, 3])
+            with our_test_col1:
+                test_our = st.button("Test Our Product Selectors")
+            with our_test_col2:
+                if test_our:
+                    if st.session_state.our_url and st.session_state.our_price_selector:
+                        with st.spinner("Testing selectors..."):
+                            result = test_scrape(
+                                st.session_state.our_url, 
+                                st.session_state.our_price_selector, 
+                                st.session_state.our_name_selector
+                            )
+                            if 'error' in result:
+                                st.error(f"Error: {result['error']}")
+                            else:
+                                name = result.get('name', 'N/A')
+                                price = result.get('price', 'N/A')
+                                st.success(f"Name: {name}, Price: {price}")
+                    else:
+                        st.warning("Please enter both URL and price selector before testing.")
+            
+            # Test competitor selectors
+            st.markdown("#### Test Competitors")
+            for i in range(5):
+                if st.session_state[f"comp_url_{i}"] and st.session_state[f"comp_price_{i}"]:
+                    comp_test_col1, comp_test_col2 = st.columns([1, 3])
+                    with comp_test_col1:
+                        if st.button(f"Test {st.session_state[f'comp_display_name_{i}']} Selectors", key=f"test_comp_{i}"):
+                            with st.spinner("Testing selectors..."):
+                                result = test_scrape(
+                                    st.session_state[f"comp_url_{i}"], 
+                                    st.session_state[f"comp_price_{i}"], 
+                                    st.session_state[f"comp_name_{i}"]
+                                )
+                                with comp_test_col2:
+                                    if 'error' in result:
+                                        st.error(f"Error: {result['error']}")
+                                    else:
+                                        name = result.get('name', 'N/A')
+                                        price = result.get('price', 'N/A')
+                                        st.success(f"Name: {name}, Price: {price}")
+            
+            # Form submission handling
             if submit_button:
                 if not st.session_state.product_name:
                     st.error("Product name is required")
@@ -221,19 +254,39 @@ def app():
                                 comp_url_value = competitor_urls[i] if i < len(competitor_urls) else ""
                                 comp_name_selector_value = competitor_selectors.get(f"name_{i}", "")
                                 comp_price_selector_value = competitor_selectors.get(f"price_{i}", "")
+                                comp_display_name = competitor_selectors.get(f"display_name_{i}", f"Competitor {i+1}")
                                 
-                                edit_comp_url = st.text_input(f"Competitor URL #{i+1}", 
-                                                          value=comp_url_value, 
-                                                          key=f"edit_comp_url_{i}")
-                                edit_comp_name_selector = st.text_input(f"Name Element Selector #{i+1} (CSS)", 
-                                                                    value=comp_name_selector_value, 
-                                                                    key=f"edit_comp_name_{i}")
-                                edit_comp_price_selector = st.text_input(f"Price Element Selector #{i+1} (CSS)", 
-                                                                     value=comp_price_selector_value, 
-                                                                     key=f"edit_comp_price_{i}")
+                                # Competitor name/identifier field
+                                edit_comp_display_name = st.text_input(
+                                    f"Competitor Name/ID #{i+1}",
+                                    placeholder="e.g., Amazon, eBay, Competitor A",
+                                    value=comp_display_name,
+                                    key=f"edit_comp_display_name_{i}"
+                                )
+                                
+                                edit_comp_url = st.text_input(
+                                    f"Competitor URL #{i+1}", 
+                                    value=comp_url_value, 
+                                    key=f"edit_comp_url_{i}"
+                                )
+                                
+                                edit_comp_name_selector = st.text_input(
+                                    f"Product Name Selector #{i+1}", 
+                                    placeholder="CSS selector, ID, or class (e.g., .product-title, #product-name)", 
+                                    value=comp_name_selector_value, 
+                                    key=f"edit_comp_name_{i}"
+                                )
+                                
+                                edit_comp_price_selector = st.text_input(
+                                    f"Price Element Selector #{i+1}", 
+                                    placeholder="CSS selector, ID, or class (e.g., .price, #productPrice)", 
+                                    value=comp_price_selector_value, 
+                                    key=f"edit_comp_price_{i}"
+                                )
                                 
                                 if edit_comp_url:
                                     edit_competitor_urls.append(edit_comp_url)
+                                    edit_competitor_selectors[f"display_name_{i}"] = edit_comp_display_name
                                     edit_competitor_selectors[f"name_{i}"] = edit_comp_name_selector
                                     edit_competitor_selectors[f"price_{i}"] = edit_comp_price_selector
                         

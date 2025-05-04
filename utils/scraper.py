@@ -87,6 +87,78 @@ def extract_price(text):
     # If all else failed, return None
     return None
 
+def parse_selector(selector):
+    """
+    Parse a selector to determine its type (id, class, tag, or CSS)
+    
+    Args:
+        selector (str): The selector string
+        
+    Returns:
+        tuple: (type, value) where type is 'id', 'class', 'tag', or 'css'
+    """
+    if not selector:
+        return None, None
+    
+    # Check if it's an ID selector (starts with #)
+    if selector.startswith('#'):
+        return 'id', selector[1:]
+    
+    # Check if it's a class selector (starts with .)
+    if selector.startswith('.'):
+        return 'class', selector[1:]
+    
+    # Check if it might be an HTML element without any selectors
+    if re.match(r'^[a-zA-Z][a-zA-Z0-9]*$', selector):
+        return 'tag', selector
+    
+    # Otherwise treat as a normal CSS selector
+    return 'css', selector
+
+def find_element(soup, selector):
+    """
+    Find an element using various selector types
+    
+    Args:
+        soup (BeautifulSoup): The BeautifulSoup object
+        selector (str): The selector string
+        
+    Returns:
+        element: The found BeautifulSoup element or None
+    """
+    if not selector:
+        return None
+    
+    selector_type, selector_value = parse_selector(selector)
+    
+    if selector_type == 'id':
+        return soup.find(id=selector_value)
+    
+    elif selector_type == 'class':
+        return soup.find(class_=selector_value)
+    
+    elif selector_type == 'tag':
+        return soup.find(selector_value)
+    
+    else:  # CSS selector
+        try:
+            return soup.select_one(selector)
+        except Exception:
+            # If the CSS selector fails, try a more forgiving approach
+            try:
+                # Try direct ID
+                if '#' in selector:
+                    id_part = selector.split('#')[1].split(' ')[0].split('.')[0]
+                    return soup.find(id=id_part)
+                # Try direct class
+                elif '.' in selector:
+                    class_part = selector.split('.')[1].split(' ')[0].split('#')[0]
+                    return soup.find(class_=class_part)
+            except Exception:
+                pass
+    
+    return None
+
 def scrape_product(url, price_selector, name_selector=None, additional_headers=None):
     """
     Scrape product information from a URL
@@ -127,16 +199,18 @@ def scrape_product(url, price_selector, name_selector=None, additional_headers=N
         
         # Extract product name if selector provided
         if name_selector:
-            name_element = soup.select_one(name_selector)
+            name_element = find_element(soup, name_selector)
             if name_element:
                 result['name'] = name_element.get_text().strip()
         
         # Extract price
-        price_element = soup.select_one(price_selector)
+        price_element = find_element(soup, price_selector)
         if price_element:
             price_text = price_element.get_text().strip()
             price = extract_price(price_text)
             result['price'] = price
+        else:
+            result['error'] = f"Price element not found with selector: {price_selector}"
         
         return result
     
