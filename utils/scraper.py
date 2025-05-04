@@ -43,8 +43,15 @@ def scrape_product(url, price_selector, name_selector=None, additional_headers=N
     Returns:
         dict: Product information including name and price
     """
+    # Get settings
+    settings = get_settings()
+    
+    # Use settings for user agent and timeout
+    user_agent = settings.get('user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+    timeout = settings.get('request_timeout', 30)
+    
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': user_agent,
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Referer': f'https://{urlparse(url).netloc}/'
@@ -54,7 +61,7 @@ def scrape_product(url, price_selector, name_selector=None, additional_headers=N
         headers.update(additional_headers)
     
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=timeout)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.text, 'html.parser')
