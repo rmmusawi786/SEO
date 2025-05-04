@@ -204,6 +204,8 @@ def app():
                     
                     if st.form_submit_button("Save Manual Price"):
                         if has_suggestion:
+                            # Get suggestion ID from product data
+                            suggestion_id = int(product_data['suggestion_id'])
                             # Update existing suggestion with manual price
                             success = update_suggested_price(
                                 suggestion_id=suggestion_id,
@@ -248,6 +250,7 @@ def app():
                             st.success("This price is already marked as applied")
                             
                             if st.button("Mark as Not Applied"):
+                                suggestion_id = int(product_data['suggestion_id'])
                                 success = update_suggested_price(
                                     suggestion_id=suggestion_id,
                                     is_applied=False
@@ -260,6 +263,7 @@ def app():
                                     st.error("Failed to update application status")
                         else:
                             if st.button("Mark as Applied", type="primary"):
+                                suggestion_id = int(product_data['suggestion_id'])
                                 success = update_suggested_price(
                                     suggestion_id=suggestion_id,
                                     is_applied=True
@@ -278,6 +282,7 @@ def app():
             # Delete suggestion button
             if has_suggestion:
                 if st.button("Delete Current Suggestion", type="secondary"):
+                    suggestion_id = int(product_data['suggestion_id'])
                     success = delete_suggested_price(suggestion_id)
                     
                     if success:

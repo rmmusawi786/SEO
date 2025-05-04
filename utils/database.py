@@ -450,13 +450,14 @@ def get_suggested_prices(product_id=None):
     
     return df
 
-def add_suggested_price(product_id, suggested_price, source='ai', notes=None):
+def add_suggested_price(product_id, suggested_price=None, manual_price=None, source='ai', notes=None):
     """
     Add a new suggested price for a product
     
     Args:
         product_id (int): Product ID
-        suggested_price (float): Suggested price
+        suggested_price (float, optional): AI suggested price
+        manual_price (float, optional): Manual price override
         source (str, optional): Source of the suggestion ('ai' or 'manual')
         notes (str, optional): Notes about the suggestion
     
@@ -471,11 +472,12 @@ def add_suggested_price(product_id, suggested_price, source='ai', notes=None):
         INSERT INTO suggested_prices (
             product_id,
             suggested_price,
+            manual_price,
             source,
             notes,
             created_at
-        ) VALUES (?, ?, ?, ?, ?)
-        ''', (product_id, suggested_price, source, notes, datetime.now()))
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ''', (product_id, suggested_price, manual_price, source, notes, datetime.now()))
         
         suggestion_id = cursor.lastrowid
         conn.commit()
