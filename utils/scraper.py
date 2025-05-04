@@ -151,6 +151,8 @@ def find_element(soup, selector):
             classes = re.findall(r'class=["\']([^"\']+)["\']', html_fragment)
             # Extract attributes like itemprop
             itemprops = re.findall(r'itemprop=["\']([^"\']+)["\']', html_fragment)
+            # Extract IDs
+            ids = re.findall(r'id=["\']([^"\']+)["\']', html_fragment)
             # Extract itemtype if present
             itemtypes = re.findall(r'itemtype=["\']([^"\']+)["\']', html_fragment)
             
@@ -161,6 +163,12 @@ def find_element(soup, selector):
                     element = soup.find(class_=class_name)
                     if element:
                         return element
+            
+            # Try by ID
+            if ids:
+                element = soup.find(id=ids[0])
+                if element:
+                    return element
             
             # Try by itemprop
             if itemprops:
@@ -173,26 +181,67 @@ def find_element(soup, selector):
                 element = soup.find(attrs={"itemtype": itemtypes[0]})
                 if element:
                     return element
-                
-            # As a fallback, get the innermost tag name from the fragment
-            tag_name = re.search(r'<([a-zA-Z][a-zA-Z0-9]*)[^>]*>[^<]*</\1>', html_fragment)
-            if tag_name:
-                # Look for a tag with similar text content if there's text in the fragment
-                text_content = re.search(r'>([^<]+)<', html_fragment)
-                if text_content and text_content.group(1).strip():
-                    # Search for elements with similar text
-                    text_pattern = text_content.group(1).strip()
-                    for element in soup.find_all(tag_name.group(1)):
-                        if element.get_text().strip() and text_pattern in element.get_text().strip():
-                            return element
             
-            # If we can't find a match, just return the span with price-related text
-            # Look for elements with price-like text (numbers with currency symbols)
-            price_elements = soup.find_all(string=re.compile(r'[\d.,]+\s*[€$£¥]|\[€$£¥]\s*[\d.,]+'))
-            if price_elements:
-                for price_text in price_elements:
-                    # Return the parent element of the found text
-                    return price_text.parent
+            # Try to find the nested tag structure
+            # First, extract the primary tag name
+            primary_tag_match = re.match(r'<([a-zA-Z][a-zA-Z0-9]*)[^>]*>', html_fragment)
+            if primary_tag_match:
+                primary_tag = primary_tag_match.group(1)
+                
+                # If we have a div.class structure, try to find that combination
+                if primary_tag == 'div' and classes:
+                    elements = soup.find_all('div', class_=classes[0])
+                    for element in elements:
+                        # If this div contains an h1 tag (common for product titles), return it
+                        if element.find('h1'):
+                            return element
+                
+                # For a typical product name container with H1
+                if primary_tag == 'div':
+                    # Look for H1 inside the div that might be a product title
+                    h1_elements = soup.find_all('h1')
+                    for h1 in h1_elements:
+                        # Check if it has itemprop="name" (schema.org markup for product name)
+                        if h1.get('itemprop') == 'name':
+                            return h1
+                        # Check if the h1 contains descriptive text
+                        if len(h1.get_text().strip()) > 10:  # Likely a product name if sufficiently long
+                            return h1
+                
+                # If looking for an h1 directly
+                if primary_tag == 'h1':
+                    h1_elements = soup.find_all('h1')
+                    
+                    # First, look for h1 with matching attributes
+                    for h1 in h1_elements:
+                        if any(attr in str(h1) for attr in ['itemprop="name"', 'class="title"', 'class="product-title"']):
+                            return h1
+                    
+                    # If no specialized h1s found, just return the first h1 with substantial content
+                    for h1 in h1_elements:
+                        if len(h1.get_text().strip()) > 5:  # A real title should have some text
+                            return h1
+                
+                # As a fallback, get the innermost tag name from the fragment
+                tag_name = re.search(r'<([a-zA-Z][a-zA-Z0-9]*)[^>]*>[^<]*</\1>', html_fragment)
+                if tag_name:
+                    # Look for a tag with similar text content if there's text in the fragment
+                    text_content = re.search(r'>([^<]+)<', html_fragment)
+                    if text_content and text_content.group(1).strip():
+                        # Search for elements with similar text
+                        text_pattern = text_content.group(1).strip()
+                        for element in soup.find_all(tag_name.group(1)):
+                            if element.get_text().strip() and text_pattern in element.get_text().strip():
+                                return element
+            
+            # If we're looking for a price element
+            if 'price' in html_fragment.lower():
+                # Look for elements with price-like text (numbers with currency symbols)
+                price_elements = soup.find_all(string=re.compile(r'[\d.,]+\s*[€$£¥]|[€$£¥]\s*[\d.,]+'))
+                if price_elements:
+                    for price_text in price_elements:
+                        # Return the parent element of the found text
+                        return price_text.parent
             
             return None
         except Exception as e:
@@ -206,9 +255,30 @@ def find_element(soup, selector):
         return soup.find(id=selector_value)
     
     elif selector_type == 'class':
+        # Expand class search to look for any element with this class
+        if selector_value:  # Check if selector_value is not None
+            try:
+                pattern = re.compile(rf'\b{re.escape(selector_value)}\b')
+                elements = soup.find_all(class_=pattern)
+                if elements:
+                    return elements[0]  # Return the first match
+            except (TypeError, re.error):
+                pass
         return soup.find(class_=selector_value)
     
     elif selector_type == 'tag':
+        # For tag selectors, try to be smarter about product names
+        if selector_value and selector_value.lower() in ['h1', 'h2', 'h3']:
+            # For headings, look for one with product name indicators
+            elements = soup.find_all(selector_value)
+            for element in elements:
+                if element.get('itemprop') == 'name':
+                    return element
+                if 'title' in str(element.get('class', '')).lower() or 'product' in str(element.get('class', '')).lower():
+                    return element
+            # If no special heading found, return the first one
+            if elements:
+                return elements[0]
         return soup.find(selector_value)
     
     else:  # CSS selector
@@ -313,8 +383,16 @@ def scrape_all_products():
         
         our_price = our_result.get('price')
         
+        # Track issues with our product data
+        our_product_issues = None
+        if 'error' in our_result:
+            our_product_issues = our_result['error']
+        elif not our_price:
+            our_product_issues = "Failed to extract price"
+        
         # Scrape competitor prices
         competitor_prices = {}
+        competitor_issues = {}  # Track issues with competitor data
         
         if product['competitor_urls'] and not pd.isna(product['competitor_urls']):
             competitor_urls = product['competitor_urls'].split(',')
@@ -327,30 +405,51 @@ def scrape_all_products():
                 price_selector = competitor_selectors.get(f"price_{i}", None)
                 name_selector = competitor_selectors.get(f"name_{i}", None)
                 
+                # Get competitor display name if available
+                display_name = competitor_selectors.get(f"display_name_{i}", f"Competitor {i+1}")
+                
                 if price_selector:
-                    # Get competitor display name if available
-                    display_name = competitor_selectors.get(f"display_name_{i}", f"Competitor {i+1}")
-                    
                     comp_result = scrape_product(comp_url, price_selector, name_selector)
                     
-                    if 'price' in comp_result:
-                        # Use display name if available, otherwise use scraped name or default
-                        competitor_name = display_name
-                        if not competitor_name or competitor_name == f"Competitor {i+1}":
-                            competitor_name = comp_result.get('name', display_name)
-                        
+                    # Use display name if available, otherwise use scraped name or default
+                    competitor_name = display_name
+                    if not competitor_name or competitor_name == f"Competitor {i+1}":
+                        competitor_name = comp_result.get('name', display_name)
+                    
+                    if 'price' in comp_result and comp_result['price'] is not None:
                         competitor_prices[competitor_name] = comp_result['price']
+                    else:
+                        # Track issues with this competitor
+                        if 'error' in comp_result:
+                            issue = comp_result['error']
+                        else:
+                            issue = "Failed to extract price"
+                        
+                        competitor_issues[competitor_name] = {
+                            'url': comp_url,
+                            'issue': issue
+                        }
+                else:
+                    competitor_issues[display_name] = {
+                        'url': comp_url,
+                        'issue': "No price selector configured"
+                    }
         
-        # Add price data to database
+        # Add price data to database if we have our price
+        product_result = {
+            'product_id': product_id,
+            'product_name': product_name,
+            'competitor_issues': competitor_issues
+        }
+        
         if our_price:
             add_price_data(product_id, our_price, competitor_prices)
-            
-            results.append({
-                'product_id': product_id,
-                'product_name': product_name,
-                'our_price': our_price,
-                'competitor_prices': competitor_prices
-            })
+            product_result['our_price'] = our_price
+            product_result['competitor_prices'] = competitor_prices
+        else:
+            product_result['our_product_issues'] = our_product_issues
+        
+        results.append(product_result)
     
     # Update last scrape time
     update_last_scrape()

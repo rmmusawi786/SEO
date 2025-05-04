@@ -75,7 +75,60 @@ def app():
                 if isinstance(results, str) and "Error" in results:
                     st.error(results)
                 elif isinstance(results, list) and results:
-                    st.success(f"Successfully updated prices for {len(results)} products!")
+                    # Check for and display any issues
+                    issues_found = False
+                    
+                    # Create tabs for success and issues
+                    scrape_tabs = st.tabs(["Results Summary", "Scraping Issues"])
+                    
+                    with scrape_tabs[0]:
+                        st.success(f"Successfully updated prices for {len(results)} products!")
+                    
+                    with scrape_tabs[1]:
+                        # Collect all issues
+                        all_issues = []
+                        
+                        for result in results:
+                            # Check for our product issues
+                            if 'our_product_issues' in result:
+                                issues_found = True
+                                all_issues.append({
+                                    'product': result['product_name'],
+                                    'source': 'Our Store',
+                                    'issue': result['our_product_issues']
+                                })
+                            
+                            # Check for competitor issues
+                            if 'competitor_issues' in result and result['competitor_issues']:
+                                issues_found = True
+                                for comp_name, comp_data in result['competitor_issues'].items():
+                                    all_issues.append({
+                                        'product': result['product_name'],
+                                        'source': comp_name,
+                                        'url': comp_data['url'],
+                                        'issue': comp_data['issue']
+                                    })
+                        
+                        if issues_found:
+                            st.warning("Some data sources had issues during scraping")
+                            
+                            # Create a DataFrame from issues and display it
+                            if all_issues:
+                                issues_df = pd.DataFrame(all_issues)
+                                st.dataframe(
+                                    issues_df,
+                                    use_container_width=True,
+                                    column_config={
+                                        "product": "Product",
+                                        "source": "Source",
+                                        "url": "URL",
+                                        "issue": "Issue"
+                                    }
+                                )
+                        else:
+                            st.success("No issues were found during scraping")
+                    
+                    # Refresh the page to show updated data
                     st.rerun()
                 else:
                     st.info("No products updated or no results returned.")
