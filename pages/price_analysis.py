@@ -121,14 +121,63 @@ def app():
                 # Suggested price with big display
                 st.subheader("Suggested Price")
                 
+                # Check if price constraints are available in the analysis
+                has_constraints = "price_constraints" in analysis
+                
                 col1, col2 = st.columns([1, 3])
                 
                 with col1:
                     st.markdown(f"<h1 style='color:#FF4B4B;'>€{analysis['suggested_price']:.2f}</h1>", unsafe_allow_html=True)
+                    
+                    if has_constraints:
+                        constraints = analysis['price_constraints']
+                        current_price = constraints['current_price']
+                        price_diff = analysis['suggested_price'] - current_price
+                        percent_diff = (price_diff / current_price) * 100
+                        
+                        # Color code the difference
+                        if price_diff > 0:
+                            diff_color = "#4CAF50"  # Green for increase
+                            direction = "+"
+                        else:
+                            diff_color = "#FFA500"  # Orange for decrease
+                            direction = ""
+                            
+                        st.markdown(
+                            f"<p>Current: <b>€{current_price:.2f}</b></p>"
+                            f"<p>Change: <span style='color:{diff_color}'>{direction}{price_diff:.2f} ({direction}{percent_diff:.1f}%)</span></p>",
+                            unsafe_allow_html=True
+                        )
                 
                 with col2:
                     st.markdown("**Reasoning:**")
-                    st.write(analysis['reasoning'])
+                    st.write(analysis.get('rationale', analysis.get('reasoning', 'No reasoning provided')))
+                    
+                    if has_constraints:
+                        constraints = analysis['price_constraints']
+                        st.markdown("**Price Constraints:**")
+                        
+                        # Create a progress bar to show where the suggested price falls within the allowed range
+                        min_price = constraints['min_allowed_price']
+                        max_price = constraints['max_allowed_price']
+                        current_price = constraints['current_price']
+                        price_range = max_price - min_price
+                        
+                        if price_range > 0:
+                            # Calculate positions as percentage of the range
+                            current_pos = ((current_price - min_price) / price_range) * 100
+                            suggestion_pos = ((analysis['suggested_price'] - min_price) / price_range) * 100
+                            
+                            st.markdown(
+                                f"<p>Min: <b>€{min_price:.2f}</b> ({constraints['min_threshold_percent']}% below current)</p>"
+                                f"<p>Max: <b>€{max_price:.2f}</b> ({constraints['max_threshold_percent']}% above current)</p>",
+                                unsafe_allow_html=True
+                            )
+                            
+                            # Show a visual range using Streamlit's progress bar
+                            st.progress(suggestion_pos / 100)
+                            st.caption(f"Suggested price relative to allowed range (Min → Max)")
+                    
                 
                 # Action buttons - these would need implementation in a real app
                 st.subheader("Actions")

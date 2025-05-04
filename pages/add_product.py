@@ -279,6 +279,59 @@ def app():
                                                             placeholder="CSS selector, ID, or class (e.g., .price, #productPrice)",
                                                             value=product_row['our_price_selector'])
                         
+                        # Get global settings
+                        from utils.database import get_settings
+                        settings = get_settings()
+                        use_global_thresholds = settings.get("use_global_price_thresholds", True)
+                        global_min_threshold = settings.get("global_min_price_threshold", 5)
+                        global_max_threshold = settings.get("global_max_price_threshold", 15)
+                        
+                        # Price threshold settings
+                        st.subheader("Price Variation Thresholds")
+                        
+                        # Check if product has specific thresholds set
+                        has_product_thresholds = ('min_price_threshold' in product_row and product_row['min_price_threshold'] is not None and 
+                                                 'max_price_threshold' in product_row and product_row['max_price_threshold'] is not None)
+                        
+                        # Get current product threshold values
+                        current_min_threshold = product_row.get('min_price_threshold', global_min_threshold)
+                        current_max_threshold = product_row.get('max_price_threshold', global_max_threshold)
+                        if current_min_threshold is None or pd.isna(current_min_threshold):
+                            current_min_threshold = global_min_threshold
+                        if current_max_threshold is None or pd.isna(current_max_threshold):
+                            current_max_threshold = global_max_threshold
+                            
+                        edit_use_product_thresholds = st.checkbox(
+                            "Override global price thresholds for this product",
+                            value=has_product_thresholds,
+                            key="edit_use_product_thresholds"
+                        )
+                        
+                        if edit_use_product_thresholds:
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                edit_min_threshold = st.number_input(
+                                    "Min Price Threshold (%)",
+                                    min_value=0,
+                                    max_value=50,
+                                    value=int(current_min_threshold),
+                                    key="edit_min_threshold",
+                                    help="Maximum percentage BELOW current price for suggestions"
+                                )
+                            with col2:
+                                edit_max_threshold = st.number_input(
+                                    "Max Price Threshold (%)",
+                                    min_value=0,
+                                    max_value=50,
+                                    value=int(current_max_threshold),
+                                    key="edit_max_threshold",
+                                    help="Maximum percentage ABOVE current price for suggestions"
+                                )
+                        else:
+                            st.info(f"Using global thresholds: Min {global_min_threshold}%, Max {global_max_threshold}%")
+                            edit_min_threshold = None
+                            edit_max_threshold = None
+                        
                         # Competitor section
                         st.subheader("Competitor Products")
                         
@@ -358,7 +411,9 @@ def app():
                                     edit_our_name_selector, 
                                     edit_our_price_selector, 
                                     edit_competitor_urls, 
-                                    edit_competitor_selectors
+                                    edit_competitor_selectors,
+                                    min_price_threshold=edit_min_threshold,
+                                    max_price_threshold=edit_max_threshold
                                 )
                                 
                                 if success:

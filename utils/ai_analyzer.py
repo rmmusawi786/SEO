@@ -95,12 +95,13 @@ def prepare_price_data(product_id, days=None):
     
     return data
 
-def analyze_price_data(data):
+def analyze_price_data(data, product_id=None):
     """
     Analyze price data using OpenAI's GPT-4o model
     
     Args:
         data (dict): Structured price data
+        product_id (int, optional): Product ID to get product-specific thresholds
     
     Returns:
         dict: Analysis results
@@ -118,6 +119,39 @@ def analyze_price_data(data):
             "product_name": data["product_name"],
             "error": "OpenAI API key is not set"
         }
+    
+    # Get price thresholds from settings and product
+    settings = get_settings()
+    use_global_thresholds = settings.get("use_global_price_thresholds", True)
+    global_min_threshold = settings.get("global_min_price_threshold", 5)
+    global_max_threshold = settings.get("global_max_price_threshold", 15)
+    
+    min_threshold = global_min_threshold
+    max_threshold = global_max_threshold
+    
+    # If product_id is provided and global thresholds should not be used, get product-specific thresholds
+    if product_id and not use_global_thresholds:
+        products_df = get_products()
+        product_info = products_df[products_df['id'] == product_id]
+        
+        if not product_info.empty:
+            has_min = ('min_price_threshold' in product_info.columns and 
+                      product_info.iloc[0]['min_price_threshold'] is not None and 
+                      not pd.isna(product_info.iloc[0]['min_price_threshold']))
+            
+            has_max = ('max_price_threshold' in product_info.columns and 
+                      product_info.iloc[0]['max_price_threshold'] is not None and 
+                      not pd.isna(product_info.iloc[0]['max_price_threshold']))
+            
+            if has_min:
+                min_threshold = float(product_info.iloc[0]['min_price_threshold'])
+            
+            if has_max:
+                max_threshold = float(product_info.iloc[0]['max_price_threshold'])
+    
+    current_price = data['our_price_stats']['current']
+    min_allowed_price = current_price * (1 - (min_threshold / 100))
+    max_allowed_price = current_price * (1 + (max_threshold / 100))
     
     try:
         # Create the prompt
@@ -145,12 +179,18 @@ def analyze_price_data(data):
         - Max price: {stats['max']}
                     """
         
-        prompt += """
+        prompt += f"""
+        IMPORTANT PRICE CONSTRAINTS:
+        Your price suggestions must stay within the following threshold:
+        - Minimum allowed price: {min_allowed_price} ({min_threshold}% below current price)
+        - Maximum allowed price: {max_allowed_price} ({max_threshold}% above current price)
+        - Current price: {current_price}
+        
         Based on this data, please provide:
         1. Analysis of our current pricing position compared to competitors
         2. Price trend analysis for us and competitors
         3. Specific pricing recommendations to be more competitive
-        4. Suggested optimal price and explanation
+        4. Suggested optimal price and explanation (MUST be between {min_allowed_price} and {max_allowed_price})
         
         Format your response as a JSON object with the following structure:
         {
@@ -181,6 +221,15 @@ def analyze_price_data(data):
         analysis["product_id"] = data["product_id"]
         analysis["product_name"] = data["product_name"]
         analysis["date_range"] = data["date_range"]
+        
+        # Add price threshold information
+        analysis["price_constraints"] = {
+            "current_price": current_price,
+            "min_allowed_price": min_allowed_price,
+            "max_allowed_price": max_allowed_price,
+            "min_threshold_percent": min_threshold,
+            "max_threshold_percent": max_threshold
+        }
         
         return analysis
     
@@ -216,8 +265,8 @@ def get_price_analysis(product_id, days=None):
             "error": "Product not found"
         }
     
-    # Analyze data
-    analysis = analyze_price_data(data)
+    # Analyze data with product-specific thresholds
+    analysis = analyze_price_data(data, product_id)
     
     return analysis
 
