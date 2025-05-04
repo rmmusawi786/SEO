@@ -169,8 +169,8 @@ def app():
                             suggestion_pos = ((analysis['suggested_price'] - min_price) / price_range) * 100
                             
                             st.markdown(
-                                f"<p>Min: <b>€{min_price:.2f}</b> ({constraints['min_threshold_percent']}% below current)</p>"
-                                f"<p>Max: <b>€{max_price:.2f}</b> ({constraints['max_threshold_percent']}% above current)</p>",
+                                f"<p>Min: <b>€{min_price:.2f}</b> ({constraints['min_threshold_eur']}€ from current)</p>"
+                                f"<p>Max: <b>€{max_price:.2f}</b> (+{constraints['max_threshold_eur']}€ from current)</p>",
                                 unsafe_allow_html=True
                             )
                             

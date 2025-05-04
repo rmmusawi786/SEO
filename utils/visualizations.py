@@ -780,3 +780,225 @@ def create_price_difference_chart(price_history_df, product_name):
     )
     
     return fig
+
+
+def create_price_radar_chart(price_history_df, product_name):
+    """
+    Create a radar chart comparing our prices to competitors
+    
+    Args:
+        price_history_df (DataFrame): Price history data
+        product_name (str): Name of the product
+        
+    Returns:
+        plotly.graph_objects.Figure: Plotly figure object
+    """
+    if price_history_df.empty:
+        # Return empty figure if no data
+        fig = go.Figure()
+        fig.update_layout(
+            title=f"No price history data available for {product_name}",
+            height=500
+        )
+        return fig
+    
+    # Get latest entry
+    latest_entry = price_history_df.iloc[-1]
+    our_price = latest_entry['our_price']
+    competitor_prices = latest_entry['competitor_prices']
+    
+    if not competitor_prices:
+        # No competitor data
+        fig = go.Figure()
+        fig.update_layout(
+            title=f"No competitor data available for {product_name}",
+            height=500
+        )
+        return fig
+    
+    # Create data for radar chart
+    categories = ['Our Store'] + list(competitor_prices.keys())
+    values = [our_price] + list(competitor_prices.values())
+    
+    # Normalize prices for better comparison
+    max_price = max(values)
+    normalized_values = [v / max_price * 100 for v in values]
+    
+    # Create radar chart
+    fig = go.Figure()
+    
+    # Add price points
+    fig.add_trace(go.Scatterpolar(
+        r=normalized_values,
+        theta=categories,
+        fill='toself',
+        name='Normalized Price',
+        line=dict(color='rgba(255, 75, 75, 0.8)'),
+        fillcolor='rgba(255, 75, 75, 0.2)'
+    ))
+    
+    # Add actual price annotations
+    annotations = []
+    for i, (cat, val, norm_val) in enumerate(zip(categories, values, normalized_values)):
+        angle = (i / len(categories)) * 2 * np.pi
+        if i == 0:  # Our store
+            r = norm_val + 15  # Offset for annotation
+            annotations.append(dict(
+                x=r * np.cos(angle),
+                y=r * np.sin(angle),
+                text=f"€{val:.2f}",
+                showarrow=False,
+                font=dict(size=12, color='red', weight='bold')
+            ))
+        else:  # Competitors
+            r = norm_val + 10  # Offset for annotation
+            annotations.append(dict(
+                x=r * np.cos(angle),
+                y=r * np.sin(angle),
+                text=f"€{val:.2f}",
+                showarrow=False,
+                font=dict(size=10)
+            ))
+    
+    # Calculate price difference percentages compared to our price
+    diff_values = [(v - our_price) / our_price * 100 for v in values]
+    
+    # Add difference annotations
+    for i, (cat, diff) in enumerate(zip(categories[1:], diff_values[1:])):
+        angle = ((i + 1) / len(categories)) * 2 * np.pi
+        r = normalized_values[i + 1] - 15  # Inside offset for difference
+        
+        # Color coding based on difference
+        if diff < 0:
+            color = "green"  # Competitor is cheaper
+            diff_text = f"{abs(diff):.1f}% lower"
+        elif diff > 0:
+            color = "red"  # Competitor is more expensive
+            diff_text = f"{diff:.1f}% higher"
+        else:
+            color = "black"
+            diff_text = "Same price"
+            
+        annotations.append(dict(
+            x=r * np.cos(angle),
+            y=r * np.sin(angle),
+            text=diff_text,
+            showarrow=False,
+            font=dict(size=9, color=color)
+        ))
+    
+    # Update layout
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 120]
+            )
+        ),
+        title=f"Price Comparison Radar for {product_name}",
+        annotations=annotations,
+        height=600
+    )
+    
+    return fig
+
+
+def create_price_parity_chart(price_history_df, product_name):
+    """
+    Create an interactive bubble chart showing price parity across time
+    
+    Args:
+        price_history_df (DataFrame): Price history data
+        product_name (str): Name of the product
+        
+    Returns:
+        plotly.graph_objects.Figure: Plotly figure object
+    """
+    if price_history_df.empty or len(price_history_df) < 2:
+        # Return empty figure if not enough data
+        fig = go.Figure()
+        fig.update_layout(
+            title=f"Not enough price history data for {product_name}",
+            height=500
+        )
+        return fig
+    
+    # Create dataframe for comparison
+    comparison_df = pd.DataFrame()
+    
+    for idx, row in price_history_df.iterrows():
+        date = row['timestamp']
+        our_price = row['our_price']
+        
+        for competitor, price in row['competitor_prices'].items():
+            # Calculate price difference
+            price_diff = ((price - our_price) / our_price) * 100
+            relative_price = price / our_price
+            
+            # Add to comparison dataframe
+            comparison_df = pd.concat([
+                comparison_df,
+                pd.DataFrame({
+                    'date': [date],
+                    'competitor': [competitor],
+                    'our_price': [our_price],
+                    'competitor_price': [price],
+                    'price_diff_pct': [price_diff],
+                    'relative_price': [relative_price]
+                })
+            ], ignore_index=True)
+    
+    # Create bubble chart
+    fig = px.scatter(
+        comparison_df,
+        x='date',
+        y='competitor',
+        size='competitor_price',
+        color='price_diff_pct',
+        color_continuous_scale=px.colors.diverging.RdBu_r,  # Red for higher, blue for lower
+        range_color=[-20, 20],  # Range for color scale centered at 0
+        size_max=40,
+        hover_name='competitor',
+        hover_data={
+            'date': True,
+            'our_price': True,
+            'competitor_price': True,
+            'price_diff_pct': ':.2f',
+            'competitor': False
+        },
+        title=f'Price Parity Analysis for {product_name}'
+    )
+    
+    # Customize layout
+    fig.update_layout(
+        height=len(comparison_df['competitor'].unique()) * 100 + 200,
+        coloraxis_colorbar=dict(
+            title='Price Difference (%)',
+            tickvals=[-20, -10, 0, 10, 20],
+            ticktext=['-20%', '-10%', '0%', '+10%', '+20%'],
+        ),
+        hovermode='closest',
+        xaxis=dict(
+            title='Date',
+            showgrid=True,
+            gridcolor='rgba(211,211,211,0.3)'
+        ),
+        yaxis=dict(
+            title='Competitor',
+            showgrid=True,
+            gridcolor='rgba(211,211,211,0.3)'
+        ),
+        plot_bgcolor='white'
+    )
+    
+    # Add reference line for price parity
+    fig.add_hline(
+        y=0.5,  # Center of the y-axis
+        line_dash='dot',
+        line_color='rgba(0,0,0,0.3)',
+        opacity=0.7,
+        annotation_text='Price Parity Reference',
+        annotation_position='bottom right'
+    )
+    
+    return fig
