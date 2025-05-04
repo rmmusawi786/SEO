@@ -27,12 +27,23 @@ def extract_price(text):
     
     # Try to identify the format and extract the price
     
-    # Case 1: European format with comma as decimal (1.234,56)
+    # Case 1: European format with comma as decimal (1.234,56 or 1.845,90 €)
     euro_match = re.search(r'(\d{1,3}(?:\.\d{3})*),(\d{1,2})', text)
     if euro_match:
         try:
             whole_part = euro_match.group(1).replace('.', '')
             decimal_part = euro_match.group(2)
+            price = float(f"{whole_part}.{decimal_part}")
+            return price
+        except (ValueError, AttributeError):
+            pass
+            
+    # Additional European format (1845,90 €)
+    euro_alt_match = re.search(r'(\d+),(\d{1,2})', text)
+    if euro_alt_match:
+        try:
+            whole_part = euro_alt_match.group(1)
+            decimal_part = euro_alt_match.group(2)
             price = float(f"{whole_part}.{decimal_part}")
             return price
         except (ValueError, AttributeError):
@@ -257,10 +268,17 @@ def scrape_all_products():
                 name_selector = competitor_selectors.get(f"name_{i}", None)
                 
                 if price_selector:
+                    # Get competitor display name if available
+                    display_name = competitor_selectors.get(f"display_name_{i}", f"Competitor {i+1}")
+                    
                     comp_result = scrape_product(comp_url, price_selector, name_selector)
                     
                     if 'price' in comp_result:
-                        competitor_name = comp_result.get('name', f"Competitor {i+1}")
+                        # Use display name if available, otherwise use scraped name or default
+                        competitor_name = display_name
+                        if not competitor_name or competitor_name == f"Competitor {i+1}":
+                            competitor_name = comp_result.get('name', display_name)
+                        
                         competitor_prices[competitor_name] = comp_result['price']
         
         # Add price data to database

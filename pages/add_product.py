@@ -50,9 +50,6 @@ def app():
                                                       placeholder="CSS selector, ID, or class (e.g., .price, #productPrice)",
                                                       value=st.session_state.our_price_selector)
                 
-                # Submit button - Test button will be outside the form
-                submit_button = st.form_submit_button("Add Product")
-                
                 # Competitor section
                 st.subheader("Competitor Products (Optional)")
                 st.markdown("Add up to 5 competitor products to compare")
@@ -93,8 +90,6 @@ def app():
                             key=f"comp_price_input_{i}",
                             value=st.session_state[f"comp_price_{i}"]
                         )
-                        
-                        # Test buttons will be outside the form
                 
                 # Collect competitor data after all inputs are defined
                 for i in range(5):
@@ -228,9 +223,11 @@ def app():
                         # Our product information
                         st.subheader("Our Product")
                         edit_our_url = st.text_input("Our Product URL", value=product_row['our_url'])
-                        edit_our_name_selector = st.text_input("Name Element Selector (CSS)", 
+                        edit_our_name_selector = st.text_input("Name Element Selector", 
+                                                           placeholder="CSS selector, ID, or class (e.g., .product-title, #product-name)",
                                                            value=product_row['our_name_selector'])
-                        edit_our_price_selector = st.text_input("Price Element Selector (CSS)", 
+                        edit_our_price_selector = st.text_input("Price Element Selector", 
+                                                            placeholder="CSS selector, ID, or class (e.g., .price, #productPrice)",
                                                             value=product_row['our_price_selector'])
                         
                         # Competitor section
@@ -329,6 +326,54 @@ def app():
                                 st.rerun()
                             else:
                                 st.error("Failed to delete product. Please try again.")
+                    
+                    # Test buttons outside the form
+                    st.subheader("Test Selectors")
+                    
+                    # Test our product selectors
+                    st.markdown("#### Test Our Product")
+                    our_test_col1, our_test_col2 = st.columns([1, 3])
+                    with our_test_col1:
+                        edit_test_our = st.button("Test Our Product Selectors", key="edit_test_our")
+                    with our_test_col2:
+                        if edit_test_our:
+                            if edit_our_url and edit_our_price_selector:
+                                with st.spinner("Testing selectors..."):
+                                    result = test_scrape(
+                                        edit_our_url, 
+                                        edit_our_price_selector, 
+                                        edit_our_name_selector
+                                    )
+                                    if 'error' in result:
+                                        st.error(f"Error: {result['error']}")
+                                    else:
+                                        name = result.get('name', 'N/A')
+                                        price = result.get('price', 'N/A')
+                                        st.success(f"Name: {name}, Price: {price}")
+                            else:
+                                st.warning("Please enter both URL and price selector before testing.")
+                    
+                    # Test competitor selectors
+                    if edit_competitor_urls:
+                        st.markdown("#### Test Competitors")
+                        for i in range(len(edit_competitor_urls)):
+                            comp_test_col1, comp_test_col2 = st.columns([1, 3])
+                            with comp_test_col1:
+                                display_name = edit_competitor_selectors.get(f"display_name_{i}", f"Competitor {i+1}")
+                                if st.button(f"Test {display_name} Selectors", key=f"edit_test_comp_{i}"):
+                                    with st.spinner("Testing selectors..."):
+                                        result = test_scrape(
+                                            edit_competitor_urls[i], 
+                                            edit_competitor_selectors[f"price_{i}"], 
+                                            edit_competitor_selectors[f"name_{i}"]
+                                        )
+                                        with comp_test_col2:
+                                            if 'error' in result:
+                                                st.error(f"Error: {result['error']}")
+                                            else:
+                                                name = result.get('name', 'N/A')
+                                                price = result.get('price', 'N/A')
+                                                st.success(f"Name: {name}, Price: {price}")
 
 # Run the app
 app()
