@@ -92,6 +92,8 @@ def main():
     2. Set up scraping schedules in "Settings"
     3. Monitor products and track prices
     4. Generate AI price analysis for better decisions
+    5. Manage and apply pricing suggestions using "Price Management"
+    6. Export suggested prices in JSON or CSV format for your systems
     """)
 
 if __name__ == "__main__":

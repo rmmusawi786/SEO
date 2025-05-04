@@ -10,25 +10,82 @@ import pandas as pd
 from utils.database import get_products, add_price_data, update_last_scrape, get_settings
 
 def extract_price(text):
-    """Extract a price from text by finding numbers with optional decimal points"""
+    """Extract a price from text by finding numbers with optional decimal points
+    
+    Handles various price formats including:
+    - US/UK format (1,234.56)
+    - European format (1.234,56)
+    - Formats with currency symbols (€, $, etc.)
+    - Formats with spaces as thousand separators (1 234,56)
+    """
     if not text:
         return None
     
-    # Clean up the text
-    text = text.strip().replace(',', '.')
+    # Clean up the text - remove currency symbols and extra spaces
+    text = text.strip()
+    text = re.sub(r'[€$£¥]', '', text)
     
-    # Find all potential price patterns in the text
-    price_matches = re.findall(r'\d+\.\d+|\d+\,\d+|\d+', text)
+    # Try to identify the format and extract the price
     
-    if not price_matches:
-        return None
+    # Case 1: European format with comma as decimal (1.234,56)
+    euro_match = re.search(r'(\d{1,3}(?:\.\d{3})*),(\d{1,2})', text)
+    if euro_match:
+        try:
+            whole_part = euro_match.group(1).replace('.', '')
+            decimal_part = euro_match.group(2)
+            price = float(f"{whole_part}.{decimal_part}")
+            return price
+        except (ValueError, AttributeError):
+            pass
     
-    # Return the first match as a float
+    # Case 2: US/UK format with dot as decimal (1,234.56)
+    us_match = re.search(r'(\d{1,3}(?:,\d{3})*).(\d{1,2})', text)
+    if us_match:
+        try:
+            whole_part = us_match.group(1).replace(',', '')
+            decimal_part = us_match.group(2)
+            price = float(f"{whole_part}.{decimal_part}")
+            return price
+        except (ValueError, AttributeError):
+            pass
+    
+    # Case 3: Format with spaces as thousand separators (1 234,56)
+    space_match = re.search(r'(\d{1,3}(?: \d{3})*)[,.](\d{1,2})', text)
+    if space_match:
+        try:
+            whole_part = space_match.group(1).replace(' ', '')
+            decimal_part = space_match.group(2)
+            price = float(f"{whole_part}.{decimal_part}")
+            return price
+        except (ValueError, AttributeError):
+            pass
+    
+    # Case 4: Simple number (1234 or 1234.56 or 1234,56)
+    simple_match = re.search(r'(\d+)(?:[.,](\d{1,2}))?', text)
+    if simple_match:
+        try:
+            whole_part = simple_match.group(1)
+            decimal_part = simple_match.group(2) if simple_match.group(2) else "00"
+            price = float(f"{whole_part}.{decimal_part}")
+            return price
+        except (ValueError, AttributeError):
+            pass
+    
+    # If none of the above worked, try a more generic approach
     try:
-        price = float(price_matches[0].replace(',', '.'))
-        return price
+        # Replace all commas with dots
+        text = text.replace(',', '.')
+        
+        # Find any number with a decimal point
+        price_matches = re.findall(r'\d+\.\d+|\d+', text)
+        
+        if price_matches:
+            return float(price_matches[0])
     except ValueError:
-        return None
+        pass
+    
+    # If all else failed, return None
+    return None
 
 def scrape_product(url, price_selector, name_selector=None, additional_headers=None):
     """

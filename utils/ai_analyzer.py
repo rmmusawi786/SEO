@@ -158,7 +158,7 @@ def analyze_price_data(data):
             "competitive_analysis": "Analysis of competitor pricing strategies",
             "recommendations": "Actionable pricing recommendations",
             "suggested_price": float,
-            "reasoning": "Explanation for the suggested price"
+            "rationale": "Brief explanation for the suggested price (100 words or less)"
         }
         """
         
