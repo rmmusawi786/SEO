@@ -128,11 +128,11 @@ def parse_selector(selector):
 
 def find_element(soup, selector):
     """
-    Find an element using various selector types
+    Find an element using various selector types including raw HTML
     
     Args:
         soup (BeautifulSoup): The BeautifulSoup object
-        selector (str): The selector string
+        selector (str): The selector string or HTML fragment
         
     Returns:
         element: The found BeautifulSoup element or None
@@ -140,6 +140,66 @@ def find_element(soup, selector):
     if not selector:
         return None
     
+    # First, check if this is an HTML fragment
+    if '<' in selector and '>' in selector:
+        try:
+            # For HTML fragments, search for a similar structure in the page
+            html_fragment = selector.strip()
+            
+            # Create a more forgiving pattern by extracting key attributes and classes
+            # Extract classes
+            classes = re.findall(r'class=["\']([^"\']+)["\']', html_fragment)
+            # Extract attributes like itemprop
+            itemprops = re.findall(r'itemprop=["\']([^"\']+)["\']', html_fragment)
+            # Extract itemtype if present
+            itemtypes = re.findall(r'itemtype=["\']([^"\']+)["\']', html_fragment)
+            
+            # Try finding by class combinations first
+            if classes:
+                # Try each class one by one
+                for class_name in classes[0].split():
+                    element = soup.find(class_=class_name)
+                    if element:
+                        return element
+            
+            # Try by itemprop
+            if itemprops:
+                element = soup.find(attrs={"itemprop": itemprops[0]})
+                if element:
+                    return element
+            
+            # Try by itemtype
+            if itemtypes:
+                element = soup.find(attrs={"itemtype": itemtypes[0]})
+                if element:
+                    return element
+                
+            # As a fallback, get the innermost tag name from the fragment
+            tag_name = re.search(r'<([a-zA-Z][a-zA-Z0-9]*)[^>]*>[^<]*</\1>', html_fragment)
+            if tag_name:
+                # Look for a tag with similar text content if there's text in the fragment
+                text_content = re.search(r'>([^<]+)<', html_fragment)
+                if text_content and text_content.group(1).strip():
+                    # Search for elements with similar text
+                    text_pattern = text_content.group(1).strip()
+                    for element in soup.find_all(tag_name.group(1)):
+                        if element.get_text().strip() and text_pattern in element.get_text().strip():
+                            return element
+            
+            # If we can't find a match, just return the span with price-related text
+            # Look for elements with price-like text (numbers with currency symbols)
+            price_elements = soup.find_all(string=re.compile(r'[\d.,]+\s*[€$£¥]|\[€$£¥]\s*[\d.,]+'))
+            if price_elements:
+                for price_text in price_elements:
+                    # Return the parent element of the found text
+                    return price_text.parent
+            
+            return None
+        except Exception as e:
+            # If parsing the HTML fragment fails, fall back to other methods
+            pass
+    
+    # If not an HTML fragment or HTML parsing failed, proceed with regular selector handling
     selector_type, selector_value = parse_selector(selector)
     
     if selector_type == 'id':
