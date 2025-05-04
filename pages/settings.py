@@ -196,6 +196,34 @@ def app():
                 help="Number of days to forecast in trend analysis"
             )
             
+            # Global price threshold settings
+            st.subheader("Price Variation Thresholds")
+            
+            use_global_thresholds = settings.get("use_global_price_thresholds", True)
+            new_use_global_thresholds = st.checkbox(
+                "Use global price thresholds for all products",
+                value=bool(use_global_thresholds),
+                help="Apply these thresholds to all products unless they have specific thresholds set"
+            )
+            
+            min_threshold = settings.get("global_min_price_threshold", 5)
+            new_min_threshold = st.slider(
+                "Minimum Price Threshold (%)",
+                min_value=0,
+                max_value=50,
+                value=int(min_threshold),
+                help="Maximum percentage BELOW current price for suggestions (e.g., 5% means suggestions won't go below 95% of current price)"
+            )
+            
+            max_threshold = settings.get("global_max_price_threshold", 15)
+            new_max_threshold = st.slider(
+                "Maximum Price Threshold (%)",
+                min_value=0,
+                max_value=50,
+                value=int(max_threshold),
+                help="Maximum percentage ABOVE current price for suggestions (e.g., 15% means suggestions won't go above 115% of current price)"
+            )
+            
             # Feature toggles
             enable_forecasting = settings.get("enable_trend_forecasting", True)
             new_enable_forecasting = st.checkbox(
@@ -214,7 +242,10 @@ def app():
                     price_alert_threshold=new_threshold,
                     competitor_weight=new_weight,
                     trend_forecast_days=new_forecast_days,
-                    enable_trend_forecasting=new_enable_forecasting
+                    enable_trend_forecasting=new_enable_forecasting,
+                    use_global_price_thresholds=new_use_global_thresholds,
+                    global_min_price_threshold=new_min_threshold,
+                    global_max_price_threshold=new_max_threshold
                 )
                 
                 st.success("Analysis settings updated successfully!")

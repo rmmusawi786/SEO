@@ -50,6 +50,49 @@ def app():
                                                       placeholder="CSS selector, ID, or class (e.g., .price, #productPrice)",
                                                       value=st.session_state.our_price_selector)
                 
+                # Get global settings
+                from utils.database import get_settings
+                settings = get_settings()
+                use_global_thresholds = settings.get("use_global_price_thresholds", True)
+                global_min_threshold = settings.get("global_min_price_threshold", 5)
+                global_max_threshold = settings.get("global_max_price_threshold", 15)
+                
+                # Price threshold settings
+                st.subheader("Price Variation Thresholds")
+                
+                if "use_product_thresholds" not in st.session_state:
+                    st.session_state.use_product_thresholds = not use_global_thresholds
+                if "min_price_threshold" not in st.session_state:
+                    st.session_state.min_price_threshold = global_min_threshold
+                if "max_price_threshold" not in st.session_state:
+                    st.session_state.max_price_threshold = global_max_threshold
+                
+                st.session_state.use_product_thresholds = st.checkbox(
+                    "Override global price thresholds for this product",
+                    value=st.session_state.use_product_thresholds
+                )
+                
+                if st.session_state.use_product_thresholds:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.session_state.min_price_threshold = st.number_input(
+                            "Min Price Threshold (%)",
+                            min_value=0,
+                            max_value=50,
+                            value=st.session_state.min_price_threshold,
+                            help="Maximum percentage BELOW current price for suggestions"
+                        )
+                    with col2:
+                        st.session_state.max_price_threshold = st.number_input(
+                            "Max Price Threshold (%)",
+                            min_value=0,
+                            max_value=50,
+                            value=st.session_state.max_price_threshold,
+                            help="Maximum percentage ABOVE current price for suggestions"
+                        )
+                else:
+                    st.info(f"Using global thresholds: Min {global_min_threshold}%, Max {global_max_threshold}%")
+                
                 # Competitor section
                 st.subheader("Competitor Products (Optional)")
                 st.markdown("Add up to 5 competitor products to compare")
@@ -158,13 +201,19 @@ def app():
                 elif not st.session_state.our_price_selector:
                     st.error("Our price selector is required")
                 else:
+                    # Set price thresholds
+                    min_threshold = st.session_state.min_price_threshold if st.session_state.use_product_thresholds else None
+                    max_threshold = st.session_state.max_price_threshold if st.session_state.use_product_thresholds else None
+                    
                     product_id = add_product(
                         st.session_state.product_name, 
                         st.session_state.our_url, 
                         st.session_state.our_name_selector, 
                         st.session_state.our_price_selector, 
                         competitor_urls, 
-                        competitor_selectors
+                        competitor_selectors,
+                        min_price_threshold=min_threshold,
+                        max_price_threshold=max_threshold
                     )
                     
                     if product_id:

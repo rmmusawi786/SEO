@@ -80,7 +80,8 @@ def get_connection():
     """Get a database connection"""
     return sqlite3.connect(DB_PATH)
 
-def add_product(name, our_url, our_name_selector, our_price_selector, competitor_urls=None, competitor_selectors=None):
+def add_product(name, our_url, our_name_selector, our_price_selector, competitor_urls=None, competitor_selectors=None, 
+              min_price_threshold=None, max_price_threshold=None):
     """Add a new product to the database"""
     conn = get_connection()
     cursor = conn.cursor()
@@ -88,18 +89,38 @@ def add_product(name, our_url, our_name_selector, our_price_selector, competitor
     competitor_urls_str = ",".join(competitor_urls) if competitor_urls else ""
     competitor_selectors_str = json.dumps(competitor_selectors) if competitor_selectors else "{}"
     
-    cursor.execute('''
-    INSERT INTO products (
-        name,
-        our_url,
-        our_name_selector,
-        our_price_selector,
-        competitor_urls,
-        competitor_selectors,
-        created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (name, our_url, our_name_selector, our_price_selector, competitor_urls_str, 
-          competitor_selectors_str, datetime.now()))
+    # Check if the products table has min_price_threshold and max_price_threshold columns
+    cursor.execute("PRAGMA table_info(products)")
+    columns = [row[1] for row in cursor.fetchall()]
+    
+    if 'min_price_threshold' in columns and 'max_price_threshold' in columns:
+        cursor.execute('''
+        INSERT INTO products (
+            name,
+            our_url,
+            our_name_selector,
+            our_price_selector,
+            competitor_urls,
+            competitor_selectors,
+            min_price_threshold,
+            max_price_threshold,
+            created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (name, our_url, our_name_selector, our_price_selector, competitor_urls_str, 
+              competitor_selectors_str, min_price_threshold, max_price_threshold, datetime.now()))
+    else:
+        cursor.execute('''
+        INSERT INTO products (
+            name,
+            our_url,
+            our_name_selector,
+            our_price_selector,
+            competitor_urls,
+            competitor_selectors,
+            created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (name, our_url, our_name_selector, our_price_selector, competitor_urls_str, 
+              competitor_selectors_str, datetime.now()))
     
     product_id = cursor.lastrowid
     conn.commit()
@@ -108,7 +129,7 @@ def add_product(name, our_url, our_name_selector, our_price_selector, competitor
     return product_id
 
 def update_product(product_id, name=None, our_url=None, our_name_selector=None, our_price_selector=None, 
-                  competitor_urls=None, competitor_selectors=None):
+                  competitor_urls=None, competitor_selectors=None, min_price_threshold=None, max_price_threshold=None):
     """Update an existing product"""
     conn = get_connection()
     cursor = conn.cursor()
@@ -150,6 +171,18 @@ def update_product(product_id, name=None, our_url=None, our_name_selector=None, 
         competitor_selectors_str = json.dumps(competitor_selectors) if competitor_selectors else "{}"
         update_fields.append("competitor_selectors = ?")
         update_values.append(competitor_selectors_str)
+    
+    # Check if the products table has min_price_threshold and max_price_threshold columns
+    cursor.execute("PRAGMA table_info(products)")
+    columns = [row[1] for row in cursor.fetchall()]
+    
+    if 'min_price_threshold' in columns and min_price_threshold is not None:
+        update_fields.append("min_price_threshold = ?")
+        update_values.append(min_price_threshold)
+    
+    if 'max_price_threshold' in columns and max_price_threshold is not None:
+        update_fields.append("max_price_threshold = ?")
+        update_values.append(max_price_threshold)
     
     if update_fields:
         query = f"UPDATE products SET {', '.join(update_fields)} WHERE id = ?"
