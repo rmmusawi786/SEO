@@ -283,18 +283,63 @@ def find_element(soup, selector):
     
     else:  # CSS selector
         try:
-            return soup.select_one(selector)
-        except Exception:
-            # If the CSS selector fails, try a more forgiving approach
+            # Try with soup.select_one first, which handles complex CSS selectors the best
+            element = soup.select_one(selector)
+            if element:
+                return element
+                
+            # Handle combined selectors like ".price h1" or ".product-price span"
+            if ' ' in selector:
+                parts = selector.split()
+                # Try to find the first part and then search within it
+                if parts[0].startswith('.'):
+                    # First part is a class
+                    class_name = parts[0][1:]
+                    container = soup.find(class_=class_name)
+                    if container:
+                        # Now search for the second part within this container
+                        if len(parts) > 1:
+                            if parts[1].startswith('.'):
+                                # Second part is also a class
+                                return container.find(class_=parts[1][1:])
+                            elif parts[1].startswith('#'):
+                                # Second part is an ID
+                                return container.find(id=parts[1][1:])
+                            else:
+                                # Second part is a tag
+                                return container.find(parts[1])
+            
+            # If nothing found yet, try more specific approaches
+            if '#' in selector:
+                # Try extracting and using just the ID part
+                id_part = selector.split('#')[1].split(' ')[0].split('.')[0]
+                element = soup.find(id=id_part)
+                if element:
+                    return element
+                    
+            if '.' in selector:
+                # Try extracting and using just the class part
+                class_part = selector.split('.')[1].split(' ')[0].split('#')[0]
+                element = soup.find(class_=class_part)
+                if element:
+                    return element
+                    
+            # Last resort: use a pattern-matching approach for price elements
+            if 'price' in selector.lower():
+                # Look for any element containing a price-like pattern
+                price_elements = soup.find_all(string=re.compile(r'[\d.,]+\s*[€$£¥]|[€$£¥]\s*[\d.,]+'))
+                if price_elements:
+                    for price_text in price_elements:
+                        # Return the parent element of the found text
+                        return price_text.parent
+                        
+        except Exception as e:
+            # If specific parsing approaches fail, try one last generic approach
             try:
-                # Try direct ID
-                if '#' in selector:
-                    id_part = selector.split('#')[1].split(' ')[0].split('.')[0]
-                    return soup.find(id=id_part)
-                # Try direct class
-                elif '.' in selector:
-                    class_part = selector.split('.')[1].split(' ')[0].split('#')[0]
-                    return soup.find(class_=class_part)
+                # Look for any element with text content matching the selector terms
+                for element in soup.find_all(True):
+                    if selector.lower() in str(element).lower():
+                        return element
             except Exception:
                 pass
     
