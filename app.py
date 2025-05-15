@@ -71,7 +71,8 @@ def main():
                 # Get max value after conversion
                 max_date = products_df['last_checked'].max()
                 if pd.notna(max_date):
-                    last_check = max_date
+                    # Convert timestamp to string for display
+                    last_check = max_date.strftime('%Y-%m-%d %H:%M')
                 else:
                     last_check = "Never"
             except:
