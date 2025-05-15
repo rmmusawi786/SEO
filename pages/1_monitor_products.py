@@ -59,6 +59,16 @@ def app():
         
         if last_updated_times:
             latest_update = max(last_updated_times)
+            # Convert to datetime object if it's a string
+            if isinstance(latest_update, str):
+                try:
+                    latest_update = datetime.strptime(latest_update, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    try:
+                        latest_update = datetime.strptime(latest_update, "%Y-%m-%d %H:%M:%S.%f")
+                    except ValueError:
+                        latest_update = datetime.now()  # Fallback if parsing fails
+            
             time_since_update = datetime.now() - latest_update
             hours_since_update = int(time_since_update.total_seconds() / 3600)
             
@@ -183,7 +193,18 @@ def app():
             
             # Determine status based on last update time
             if product.get('last_checked'):
-                hours_since_update = (datetime.now() - product['last_checked']).total_seconds() / 3600
+                last_checked = product['last_checked']
+                # Convert to datetime object if it's a string
+                if isinstance(last_checked, str):
+                    try:
+                        last_checked = datetime.strptime(last_checked, "%Y-%m-%d %H:%M:%S")
+                    except ValueError:
+                        try:
+                            last_checked = datetime.strptime(last_checked, "%Y-%m-%d %H:%M:%S.%f")
+                        except ValueError:
+                            last_checked = datetime.now()  # Fallback if parsing fails
+                            
+                hours_since_update = (datetime.now() - last_checked).total_seconds() / 3600
                 if hours_since_update < 24:
                     product_status["status"] = "Active"
                 elif hours_since_update < 48:
