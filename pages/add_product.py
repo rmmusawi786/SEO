@@ -1,13 +1,15 @@
 import streamlit as st
 import pandas as pd
+import base64
 from utils.database import add_product, get_products, update_product, delete_product
 from utils.scraper import test_scrape
+from utils.excel_importer import process_excel_file, generate_template_excel
 
 def app():
     st.title("Add & Manage Products")
     
-    # Create tabs for Add and Manage
-    tab1, tab2 = st.tabs(["Add New Product", "Manage Products"])
+    # Create tabs for Add, Import, and Manage
+    tab1, tab2, tab3 = st.tabs(["Add New Product", "Import from Excel", "Manage Products"])
     
     with tab1:
         st.header("Add a New Product to Monitor")
@@ -225,6 +227,63 @@ def app():
                         st.error("Failed to add product. Please try again.")
     
     with tab2:
+        st.header("Import Products from Excel")
+        
+        st.markdown("""
+        Upload an Excel file with product information to bulk import products. 
+        The file should have the following columns:
+        - `product_name` (required): Name of the product
+        - `our_url` (required): URL to our product
+        - `our_name_selector` (optional): CSS selector for product name
+        - `our_price_selector` (required): CSS selector for product price
+        - `min_price_threshold` (optional): Minimum price threshold in EUR
+        - `max_price_threshold` (optional): Maximum price threshold in EUR
+        - `competitor1_url`, `competitor1_name_selector`, `competitor1_price_selector` (optional): Competitor details
+        - `competitor1_display_name` (optional): Display name for competitor
+        - ... up to 5 competitors
+        """)
+        
+        # Create download template button
+        template_excel = generate_template_excel()
+        st.download_button(
+            label="Download Excel Template",
+            data=template_excel,
+            file_name="product_import_template.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
+        # File uploader
+        uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
+        
+        if uploaded_file is not None:
+            # Display a preview of the Excel file
+            df_preview = pd.read_excel(uploaded_file, engine='openpyxl')
+            st.subheader("Preview of Excel Data")
+            st.dataframe(df_preview.head(5), use_container_width=True)
+            
+            # Reset the file pointer to the beginning
+            uploaded_file.seek(0)
+            
+            # Process button
+            if st.button("Import Products", type="primary"):
+                with st.spinner("Processing Excel file..."):
+                    # Process the uploaded file
+                    result = process_excel_file(uploaded_file)
+                    
+                    if result['success']:
+                        st.success(f"Successfully imported {result['products_added']} products!")
+                        
+                        if result['failed_products']:
+                            st.warning("The following products failed to import:")
+                            for product in result['failed_products']:
+                                st.write(f"- {product}")
+                        
+                        if result['products_added'] > 0:
+                            st.balloons()
+                    else:
+                        st.error(f"Import failed: {result['error']}")
+    
+    with tab3:
         st.header("Manage Existing Products")
         
         # Get all products
