@@ -373,45 +373,76 @@ def app():
                     if not competitor_urls:
                         st.info("No competitors configured for this product.")
                     else:
-                        for idx, (comp_id, comp_url) in enumerate(competitor_urls.items()):
+                        # Handle both dict and list formats for competitor_urls
+                        if isinstance(competitor_urls, dict):
+                            competitor_items = list(competitor_urls.items())
+                        elif isinstance(competitor_urls, list):
+                            # For list format, create enumerated IDs
+                            competitor_items = [(str(i), url) for i, url in enumerate(competitor_urls)]
+                        else:
+                            st.warning(f"Unknown competitor URL format: {type(competitor_urls)}")
+                            competitor_items = []
+                            
+                        for idx, (comp_id, comp_url) in enumerate(competitor_items):
                             if idx > 0:
                                 st.markdown("---")
                                 
                             st.markdown(f"**Competitor {idx+1}**")
                             st.markdown(f"URL: {comp_url}")
                             
-                            if comp_id in competitor_selectors:
-                                selectors = competitor_selectors[comp_id]
-                                if isinstance(selectors, dict):
-                                    name_selector = selectors.get('name', 'Not set')
-                                    price_selector = selectors.get('price', 'Not set')
+                            # Handle different formats of competitor selectors
+                            name_selector = "Not set"
+                            price_selector = "Not set"
+                            
+                            # Try to get selectors from different formats
+                            if isinstance(competitor_selectors, dict):
+                                # Check if comp_id is in the dict
+                                if comp_id in competitor_selectors:
+                                    selectors = competitor_selectors[comp_id]
+                                    if isinstance(selectors, dict):
+                                        name_selector = selectors.get('name', 'Not set')
+                                        price_selector = selectors.get('price', 'Not set')
+                                    elif isinstance(selectors, list) and len(selectors) >= 2:
+                                        name_selector = selectors[0]
+                                        price_selector = selectors[1]
+                                # Try index-based access if numeric
+                                elif comp_id.isdigit() and int(comp_id) < len(competitor_selectors):
+                                    idx_selectors = list(competitor_selectors.values())[int(comp_id)]
+                                    if isinstance(idx_selectors, dict):
+                                        name_selector = idx_selectors.get('name', 'Not set')
+                                        price_selector = idx_selectors.get('price', 'Not set')
+                            # List of lists format [[name1, price1], [name2, price2]]
+                            elif isinstance(competitor_selectors, list) and idx < len(competitor_selectors):
+                                idx_selectors = competitor_selectors[idx]
+                                if isinstance(idx_selectors, list) and len(idx_selectors) >= 2:
+                                    name_selector = idx_selectors[0]
+                                    price_selector = idx_selectors[1]
+                                elif isinstance(idx_selectors, dict):
+                                    name_selector = idx_selectors.get('name', 'Not set')
+                                    price_selector = idx_selectors.get('price', 'Not set')
                                     
-                                    st.markdown(f"Name Selector: `{name_selector}`")
-                                    st.markdown(f"Price Selector: `{price_selector}`")
-                                    
-                                    # Add test buttons
-                                    test_cols = st.columns(2)
-                                    with test_cols[0]:
-                                        if st.button(f"Test Name {idx+1}", key=f"test_name_{comp_id}"):
-                                            from utils.scraper import test_scrape
-                                            result = test_scrape(comp_url, None, name_selector)
-                                            if result and result.get('name'):
-                                                st.success(f"Found: {result['name']}")
-                                            else:
-                                                st.error("Failed to find element with selector")
-                                                
-                                    with test_cols[1]:
-                                        if st.button(f"Test Price {idx+1}", key=f"test_price_{comp_id}"):
-                                            from utils.scraper import test_scrape
-                                            result = test_scrape(comp_url, price_selector)
-                                            if result and result.get('price') is not None:
-                                                st.success(f"Found price: {result['price']}")
-                                            else:
-                                                st.error("Failed to find price with selector")
-                                else:
-                                    st.warning(f"Invalid selector format for competitor {idx+1}")
-                            else:
-                                st.warning(f"No selectors defined for competitor {idx+1}")
+                            st.markdown(f"Name Selector: `{name_selector}`")
+                            st.markdown(f"Price Selector: `{price_selector}`")
+                            
+                            # Add test buttons
+                            test_cols = st.columns(2)
+                            with test_cols[0]:
+                                if st.button(f"Test Name {idx+1}", key=f"test_name_{comp_id}"):
+                                    from utils.scraper import test_scrape
+                                    result = test_scrape(comp_url, None, name_selector)
+                                    if result and result.get('name'):
+                                        st.success(f"Found: {result['name']}")
+                                    else:
+                                        st.error("Failed to find element with selector")
+                                        
+                            with test_cols[1]:
+                                if st.button(f"Test Price {idx+1}", key=f"test_price_{comp_id}"):
+                                    from utils.scraper import test_scrape
+                                    result = test_scrape(comp_url, price_selector)
+                                    if result and result.get('price') is not None:
+                                        st.success(f"Found price: {result['price']}")
+                                    else:
+                                        st.error("Failed to find price with selector")
             else:
                 st.error("Could not retrieve detailed product information.")
             
