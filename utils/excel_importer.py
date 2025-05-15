@@ -53,9 +53,9 @@ def process_excel_file(file_data):
                 # Extract price thresholds if they exist
                 min_threshold = None
                 max_threshold = None
-                if 'min_price_threshold' in row and not pd.isna(row['min_price_threshold']):
+                if 'min_price_threshold' in row and pd.notna(row['min_price_threshold']):
                     min_threshold = float(row['min_price_threshold'])
-                if 'max_price_threshold' in row and not pd.isna(row['max_price_threshold']):
+                if 'max_price_threshold' in row and pd.notna(row['max_price_threshold']):
                     max_threshold = float(row['max_price_threshold'])
                 
                 # Extract competitor information
@@ -68,12 +68,13 @@ def process_excel_file(file_data):
                     comp_price_col = f'competitor{i}_price_selector'
                     comp_display_name_col = f'competitor{i}_display_name'
                     
-                    if comp_url_col in row and not pd.isna(row[comp_url_col]) and comp_price_col in row and not pd.isna(row[comp_price_col]):
+                    if (comp_url_col in row and pd.notna(row[comp_url_col]) and 
+                        comp_price_col in row and pd.notna(row[comp_price_col])):
                         competitor_urls.append(row[comp_url_col])
                         
                         # Set display name
                         display_name = f"Competitor {i}"
-                        if comp_display_name_col in row and not pd.isna(row[comp_display_name_col]):
+                        if comp_display_name_col in row and pd.notna(row[comp_display_name_col]):
                             display_name = row[comp_display_name_col]
                         
                         competitor_selectors[f'display_name_{i-1}'] = display_name
@@ -142,12 +143,12 @@ def generate_template_excel():
     
     df = pd.DataFrame(data)
     
-    # Create a bytes buffer
+    # Create a bytes buffer and write DataFrame to Excel
     buffer = io.BytesIO()
+    df.to_excel(buffer, index=False, sheet_name='Products', engine='openpyxl')
     
-    # Write DataFrame to Excel
-    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Products')
+    # Reset buffer position to the beginning
+    buffer.seek(0)
     
     # Return the bytes
     return buffer.getvalue()

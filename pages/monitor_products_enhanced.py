@@ -444,7 +444,7 @@ def app():
                 
                 # Create DataFrame for our prices
                 our_price_df = price_history[['timestamp', 'our_price']].copy()
-                our_price_df.rename(columns={'our_price': 'price'}, inplace=True)
+                our_price_df = our_price_df.rename(columns={'our_price': 'price'})
                 our_price_df['source'] = 'Our Store'
                 
                 # Create DataFrames for competitor prices
@@ -462,8 +462,8 @@ def app():
                         })
                         all_prices_df = pd.concat([all_prices_df, comp_df], ignore_index=True)
                 
-                # Sort by timestamp
-                all_prices_df = all_prices_df.sort_values(['timestamp', 'source']).reset_index(drop=True)
+                # Sort by timestamp and source
+                all_prices_df = all_prices_df.sort_values(by=['timestamp', 'source']).reset_index(drop=True)
                 
                 # Format price column
                 all_prices_df['price'] = all_prices_df['price'].apply(lambda x: f"€{x:.2f}" if pd.notnull(x) else "N/A")

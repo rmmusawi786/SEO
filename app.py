@@ -1,8 +1,9 @@
 import streamlit as st
 import os
 import pandas as pd
-from utils.database import init_db, get_products
+from utils.database import init_db, get_products, get_settings
 from utils.database_upgrade import upgrade_settings_table, upgrade_products_table
+from utils.scheduler import start_scheduler, get_scheduler_status
 
 # Set page configuration
 st.set_page_config(
@@ -19,6 +20,11 @@ init_db()
 with st.spinner("Updating database schema..."):
     upgrade_settings_table()
     upgrade_products_table()
+    
+# Auto-start the scheduler if it's not already running
+scheduler_status = get_scheduler_status()
+if not scheduler_status["running"]:
+    start_scheduler()
 
 # Main app
 def main():
