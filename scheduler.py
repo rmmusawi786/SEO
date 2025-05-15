@@ -3,8 +3,8 @@ import threading
 import schedule
 from datetime import datetime, timedelta
 import streamlit as st
-from utils.scraper import scrape_all_products
-from utils.database import get_settings, update_last_scrape
+from scraper import scrape_all_products
+from database import get_settings, update_last_scrape
 
 # Global variables to manage the scheduler
 _stop_event = threading.Event()
