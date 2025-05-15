@@ -914,91 +914,160 @@ def create_price_parity_chart(price_history_df, product_name):
     Returns:
         plotly.graph_objects.Figure: Plotly figure object
     """
+    # Create empty figure for error cases
+    empty_fig = go.Figure()
+    
+    # Check if dataframe is empty or too small
     if price_history_df.empty or len(price_history_df) < 2:
-        # Return empty figure if not enough data
-        fig = go.Figure()
-        fig.update_layout(
-            title=f"Not enough price history data for {product_name}",
+        empty_fig.add_annotation(
+            text="Not enough price history data available",
+            showarrow=False,
+            font=dict(size=16)
+        )
+        empty_fig.update_layout(
+            title=f"Insufficient price history for {product_name}",
             height=500
         )
-        return fig
+        return empty_fig
     
-    # Create dataframe for comparison
-    comparison_df = pd.DataFrame()
-    
-    for idx, row in price_history_df.iterrows():
-        date = row['timestamp']
-        our_price = row['our_price']
+    # Safely process the data
+    try:
+        # Create a list to hold our data rows
+        data_rows = []
         
-        for competitor, price in row['competitor_prices'].items():
-            # Calculate price difference
-            price_diff = ((price - our_price) / our_price) * 100
-            relative_price = price / our_price
+        for idx, row in price_history_df.iterrows():
+            date = row['timestamp']
+            our_price = row['our_price']
             
-            # Add to comparison dataframe
-            comparison_df = pd.concat([
-                comparison_df,
-                pd.DataFrame({
-                    'date': [date],
-                    'competitor': [competitor],
-                    'our_price': [our_price],
-                    'competitor_price': [price],
-                    'price_diff_pct': [price_diff],
-                    'relative_price': [relative_price]
-                })
-            ], ignore_index=True)
-    
-    # Create bubble chart
-    fig = px.scatter(
-        comparison_df,
-        x='date',
-        y='competitor',
-        size='competitor_price',
-        color='price_diff_pct',
-        color_continuous_scale=px.colors.diverging.RdBu_r,  # Red for higher, blue for lower
-        range_color=[-20, 20],  # Range for color scale centered at 0
-        size_max=40,
-        hover_name='competitor',
-        hover_data={
-            'date': True,
-            'our_price': True,
-            'competitor_price': True,
-            'price_diff_pct': ':.2f',
-            'competitor': False
-        },
-        title=f'Price Parity Analysis for {product_name}'
-    )
-    
-    # Customize layout
-    fig.update_layout(
-        height=len(comparison_df['competitor'].unique()) * 100 + 200,
-        coloraxis_colorbar=dict(
-            title='Price Difference (%)',
-            tickvals=[-20, -10, 0, 10, 20],
-            ticktext=['-20%', '-10%', '0%', '+10%', '+20%'],
-        ),
-        hovermode='closest',
-        xaxis=dict(
-            title='Date',
-            showgrid=True,
-            gridcolor='rgba(211,211,211,0.3)'
-        ),
-        yaxis=dict(
-            title='Competitor',
-            showgrid=True,
-            gridcolor='rgba(211,211,211,0.3)'
-        ),
-        plot_bgcolor='white'
-    )
-    
-    # Add reference line for price parity
-    fig.add_hline(
-        y=0.5,  # Center of the y-axis
-        line_dash='dot',
-        line_color='rgba(0,0,0,0.3)',
-        opacity=0.7,
-        annotation_text='Price Parity Reference',
-        annotation_position='bottom right'
-    )
-    
-    return fig
+            # Skip if competitor_prices is not a dict
+            if not isinstance(row.get('competitor_prices'), dict):
+                continue
+            
+            for competitor, price in row['competitor_prices'].items():
+                # Skip invalid prices
+                if price is None or not isinstance(price, (int, float)) or price <= 0:
+                    continue
+                    
+                # Skip invalid our_price
+                if our_price is None or not isinstance(our_price, (int, float)) or our_price <= 0:
+                    continue
+                
+                # Calculate metrics
+                try:
+                    price_diff = ((price - our_price) / our_price) * 100
+                    relative_price = price / our_price
+                    
+                    # Only add valid calculations
+                    data_rows.append({
+                        'date': date,
+                        'competitor': competitor,
+                        'our_price': our_price,
+                        'competitor_price': price,
+                        'price_diff_pct': price_diff,
+                        'relative_price': relative_price
+                    })
+                except (TypeError, ZeroDivisionError):
+                    continue
+        
+        # Create dataframe from the valid data rows 
+        if not data_rows:
+            empty_fig.add_annotation(
+                text="No valid price comparison data available",
+                showarrow=False,
+                font=dict(size=16)
+            )
+            empty_fig.update_layout(
+                title=f"No valid comparison data for {product_name}",
+                height=500
+            )
+            return empty_fig
+            
+        comparison_df = pd.DataFrame(data_rows)
+        
+        # Check for empty dataframe after processing
+        if comparison_df.empty:
+            empty_fig.add_annotation(
+                text="No valid price comparison data available after processing",
+                showarrow=False,
+                font=dict(size=16)
+            )
+            empty_fig.update_layout(
+                title=f"No valid comparison data for {product_name}",
+                height=500
+            )
+            return empty_fig
+        
+        # Create bubble chart with error handling
+        fig = go.Figure()
+        
+        # Add a scatter trace for each competitor
+        for competitor in comparison_df['competitor'].unique():
+            df_comp = comparison_df[comparison_df['competitor'] == competitor]
+            
+            # Add scatter plot
+            fig.add_trace(go.Scatter(
+                x=df_comp['date'],
+                y=[competitor] * len(df_comp),
+                mode='markers',
+                marker=dict(
+                    size=df_comp['competitor_price'],
+                    sizemode='area',
+                    sizeref=2.*max(comparison_df['competitor_price'])/(40.**2),
+                    sizemin=4,
+                    color=df_comp['price_diff_pct'],
+                    colorscale='RdBu_r',
+                    cmin=-20,
+                    cmax=20,
+                    colorbar=dict(
+                        title='Price Difference (%)',
+                        tickvals=[-20, -10, 0, 10, 20],
+                        ticktext=['-20%', '-10%', '0%', '+10%', '+20%'],
+                    ),
+                ),
+                name=competitor,
+                hovertemplate='<b>%{text}</b><br>' +
+                              'Date: %{x}<br>' +
+                              'Our Price: €%{customdata[0]:.2f}<br>' +
+                              'Competitor Price: €%{customdata[1]:.2f}<br>' +
+                              'Difference: %{customdata[2]:.1f}%<br>' +
+                              '<extra></extra>',
+                text=[competitor] * len(df_comp),
+                customdata=np.column_stack((
+                    df_comp['our_price'], 
+                    df_comp['competitor_price'],
+                    df_comp['price_diff_pct']
+                ))
+            ))
+        
+        # Customize layout
+        fig.update_layout(
+            title=f'Price Parity Analysis for {product_name}',
+            height=max(300, len(comparison_df['competitor'].unique()) * 100 + 100),
+            hovermode='closest',
+            xaxis=dict(
+                title='Date',
+                showgrid=True,
+                gridcolor='rgba(211,211,211,0.3)'
+            ),
+            yaxis=dict(
+                title='Competitor',
+                showgrid=True,
+                gridcolor='rgba(211,211,211,0.3)'
+            ),
+            plot_bgcolor='white'
+        )
+        
+        return fig
+        
+    except Exception as e:
+        # Handle any unexpected errors
+        empty_fig.add_annotation(
+            text=f"Error creating chart: {str(e)}",
+            showarrow=False,
+            font=dict(size=16)
+        )
+        empty_fig.update_layout(
+            title=f"Error in chart for {product_name}",
+            height=500
+        )
+        return empty_fig
