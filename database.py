@@ -643,6 +643,11 @@ def upgrade_settings_table():
         cursor.execute("INSERT INTO settings (key, value) VALUES (?, ?)", 
                       ("analysis_period", "7"))  # Default to 7 days
     
+    cursor.execute("SELECT key FROM settings WHERE key = ?", ("scrape_interval",))
+    if not cursor.fetchone():
+        cursor.execute("INSERT INTO settings (key, value) VALUES (?, ?)", 
+                      ("scrape_interval", "3600"))  # Default to 1 hour (3600 seconds)
+    
     conn.commit()
     conn.close()
     print("Settings table upgraded successfully!")

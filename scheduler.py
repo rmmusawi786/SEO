@@ -39,7 +39,7 @@ def start_scheduler():
     
     # Get interval from settings (in seconds)
     settings = get_settings()
-    interval_seconds = settings["scrape_interval"]
+    interval_seconds = int(settings.get("scrape_interval", 3600))  # Convert to int with default of 1 hour if not set
     
     # Convert to minutes for schedule
     interval_minutes = max(1, interval_seconds // 60)
@@ -74,7 +74,7 @@ def get_scheduler_status():
     global _scheduler_thread, _last_run_time
     
     settings = get_settings()
-    interval_seconds = settings["scrape_interval"]
+    interval_seconds = int(settings.get("scrape_interval", 3600))  # Convert to int with default of 1 hour if not set
     
     # Format interval for display
     if interval_seconds < 60:
