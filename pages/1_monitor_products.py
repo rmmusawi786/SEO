@@ -298,6 +298,123 @@ def app():
             else:
                 view_mode = chart_type.lower()
         
+        # Add product configuration details section
+        from utils.database import get_product, get_settings
+        st.markdown("### Product Configuration Details")
+        with st.expander("View or test product selectors and settings", expanded=False):
+            # Get the full product data
+            full_product = get_product(selected_id)
+            
+            if full_product:
+                # Create tabs for different product configuration sections
+                detail_tabs = st.tabs(["URLs & Selectors", "Price Thresholds", "Competitors"])
+                
+                # URLs and Selectors tab
+                with detail_tabs[0]:
+                    cols = st.columns([1, 2])
+                    with cols[0]:
+                        st.markdown("#### Our Product")
+                        st.markdown(f"**URL:** {full_product['our_url']}")
+                        st.markdown(f"**Name Selector:** `{full_product['our_name_selector']}`")
+                        st.markdown(f"**Price Selector:** `{full_product['our_price_selector']}`")
+                    
+                    with cols[1]:
+                        # Add a test scrape button
+                        test_url = st.text_input("Test URL with selectors", value=full_product['our_url'])
+                        test_cols = st.columns(2)
+                        with test_cols[0]:
+                            if st.button("Test Name Selector"):
+                                from utils.scraper import test_scrape
+                                result = test_scrape(test_url, None, full_product['our_name_selector'])
+                                if result and result.get('name'):
+                                    st.success(f"Found: {result['name']}")
+                                else:
+                                    st.error("Failed to find element with selector")
+                                    
+                        with test_cols[1]:
+                            if st.button("Test Price Selector"):
+                                from utils.scraper import test_scrape
+                                result = test_scrape(test_url, full_product['our_price_selector'])
+                                if result and result.get('price') is not None:
+                                    st.success(f"Found price: {result['price']}")
+                                else:
+                                    st.error("Failed to find price with selector")
+                
+                # Price Thresholds tab
+                with detail_tabs[1]:
+                    settings = get_settings()
+                    global_min = settings.get('global_min_price_threshold', 0)
+                    global_max = settings.get('global_max_price_threshold', 0)
+                    
+                    st.markdown("#### Price Thresholds")
+                    
+                    # Check if product has custom thresholds
+                    min_threshold = full_product.get('min_price_threshold')
+                    max_threshold = full_product.get('max_price_threshold')
+                    
+                    if min_threshold is not None and max_threshold is not None:
+                        st.markdown(f"**Using product-specific thresholds:**")
+                        st.markdown(f"- Minimum threshold: {min_threshold}€")
+                        st.markdown(f"- Maximum threshold: {max_threshold}€")
+                        st.markdown("*These values override the global thresholds.*")
+                    else:
+                        st.markdown(f"**Using global thresholds:**")
+                        st.markdown(f"- Minimum threshold: {global_min}€")
+                        st.markdown(f"- Maximum threshold: {global_max}€")
+                        st.markdown("*You can set product-specific thresholds on the Edit Product page.*")
+                
+                # Competitors tab
+                with detail_tabs[2]:
+                    st.markdown("#### Competitor Information")
+                    
+                    competitor_urls = full_product.get('competitor_urls', {})
+                    competitor_selectors = full_product.get('competitor_selectors', {})
+                    
+                    if not competitor_urls:
+                        st.info("No competitors configured for this product.")
+                    else:
+                        for idx, (comp_id, comp_url) in enumerate(competitor_urls.items()):
+                            if idx > 0:
+                                st.markdown("---")
+                                
+                            st.markdown(f"**Competitor {idx+1}**")
+                            st.markdown(f"URL: {comp_url}")
+                            
+                            if comp_id in competitor_selectors:
+                                selectors = competitor_selectors[comp_id]
+                                if isinstance(selectors, dict):
+                                    name_selector = selectors.get('name', 'Not set')
+                                    price_selector = selectors.get('price', 'Not set')
+                                    
+                                    st.markdown(f"Name Selector: `{name_selector}`")
+                                    st.markdown(f"Price Selector: `{price_selector}`")
+                                    
+                                    # Add test buttons
+                                    test_cols = st.columns(2)
+                                    with test_cols[0]:
+                                        if st.button(f"Test Name {idx+1}", key=f"test_name_{comp_id}"):
+                                            from utils.scraper import test_scrape
+                                            result = test_scrape(comp_url, None, name_selector)
+                                            if result and result.get('name'):
+                                                st.success(f"Found: {result['name']}")
+                                            else:
+                                                st.error("Failed to find element with selector")
+                                                
+                                    with test_cols[1]:
+                                        if st.button(f"Test Price {idx+1}", key=f"test_price_{comp_id}"):
+                                            from utils.scraper import test_scrape
+                                            result = test_scrape(comp_url, price_selector)
+                                            if result and result.get('price') is not None:
+                                                st.success(f"Found price: {result['price']}")
+                                            else:
+                                                st.error("Failed to find price with selector")
+                                else:
+                                    st.warning(f"Invalid selector format for competitor {idx+1}")
+                            else:
+                                st.warning(f"No selectors defined for competitor {idx+1}")
+            else:
+                st.error("Could not retrieve detailed product information.")
+            
         # Display the price history chart
         if not price_history.empty:
             st.subheader(f"Price History for {product_name}")
