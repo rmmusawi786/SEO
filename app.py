@@ -64,7 +64,18 @@ def main():
     with col3:
         # Get last update time if available
         if not products_df.empty and 'last_checked' in products_df.columns:
-            last_check = products_df['last_checked'].max() if not pd.isna(products_df['last_checked'].max()) else "Never"
+            # Handle mixed string and datetime types
+            try:
+                # Convert any strings to datetime
+                products_df['last_checked'] = pd.to_datetime(products_df['last_checked'], errors='coerce')
+                # Get max value after conversion
+                max_date = products_df['last_checked'].max()
+                if pd.notna(max_date):
+                    last_check = max_date
+                else:
+                    last_check = "Never"
+            except:
+                last_check = "Never"
         else:
             last_check = "Never"
         st.metric("Last Price Check", last_check)

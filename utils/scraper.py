@@ -14,20 +14,45 @@ def extract_price(text):
     
     Handles various price formats including:
     - US/UK format (1,234.56)
-    - European format (1.234,56)
-    - Formats with currency symbols (€, $, etc.)
+    - European format (1.234,56 or 1.845,90 €)
+    - Formats with currency symbols (€, $, £, ¥, etc.)
     - Formats with spaces as thousand separators (1 234,56)
+    - Various other number formats
     """
     if not text:
         return None
     
-    # Clean up the text - remove currency symbols and extra spaces
+    # Clean up the text - normalize spaces and separate currency symbols with a space
     text = text.strip()
+    
+    # First, preserve the original text for certain patterns
+    original_text = text
+    
+    # Put a space between numbers and currency symbols for easier parsing
+    text = re.sub(r'(\d)([€$£¥])', r'\1 \2', text)
+    text = re.sub(r'([€$£¥])(\d)', r'\1 \2', text)
+    
+    # Normalize spaces
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Try to match price formats in the original text (before removing currency symbols)
+    
+    # First try to find common European price patterns with currency symbol: "1.845,90 €"
+    euro_currency_match = re.search(r'(\d{1,3}(?:\.\d{3})*),(\d{1,2})\s*[€$£¥]', original_text) or \
+                         re.search(r'[€$£¥]\s*(\d{1,3}(?:\.\d{3})*),(\d{1,2})', original_text)
+    if euro_currency_match:
+        try:
+            whole_part = euro_currency_match.group(1).replace('.', '')
+            decimal_part = euro_currency_match.group(2)
+            price = float(f"{whole_part}.{decimal_part}")
+            return price
+        except (ValueError, AttributeError, IndexError):
+            pass
+    
+    # Now remove currency symbols for further processing
     text = re.sub(r'[€$£¥]', '', text)
     
-    # Try to identify the format and extract the price
-    
-    # Case 1: European format with comma as decimal (1.234,56 or 1.845,90 €)
+    # Case 1: European format with period as thousand separator and comma as decimal (1.234,56)
     euro_match = re.search(r'(\d{1,3}(?:\.\d{3})*),(\d{1,2})', text)
     if euro_match:
         try:
@@ -38,7 +63,7 @@ def extract_price(text):
         except (ValueError, AttributeError):
             pass
             
-    # Additional European format (1845,90 €)
+    # Additional European format with just comma as decimal (1845,90)
     euro_alt_match = re.search(r'(\d+),(\d{1,2})', text)
     if euro_alt_match:
         try:
@@ -49,7 +74,7 @@ def extract_price(text):
         except (ValueError, AttributeError):
             pass
     
-    # Case 2: US/UK format with dot as decimal (1,234.56)
+    # Case 2: US/UK format with comma as thousand separator and dot as decimal (1,234.56)
     us_match = re.search(r'(\d{1,3}(?:,\d{3})*).(\d{1,2})', text)
     if us_match:
         try:
@@ -60,7 +85,7 @@ def extract_price(text):
         except (ValueError, AttributeError):
             pass
     
-    # Case 3: Format with spaces as thousand separators (1 234,56)
+    # Case 3: Format with spaces as thousand separators (1 234,56 or 1 234.56)
     space_match = re.search(r'(\d{1,3}(?: \d{3})*)[,.](\d{1,2})', text)
     if space_match:
         try:
@@ -71,7 +96,7 @@ def extract_price(text):
         except (ValueError, AttributeError):
             pass
     
-    # Case 4: Simple number (1234 or 1234.56 or 1234,56)
+    # Case 4: Simple number with optional decimals (1234 or 1234.56 or 1234,56)
     simple_match = re.search(r'(\d+)(?:[.,](\d{1,2}))?', text)
     if simple_match:
         try:
@@ -82,10 +107,13 @@ def extract_price(text):
         except (ValueError, AttributeError):
             pass
     
-    # If none of the above worked, try a more generic approach
+    # If none of the specific patterns worked, try a more generic approach
     try:
-        # Replace all commas with dots
-        text = text.replace(',', '.')
+        # First replace all commas followed by exactly 2 digits with a special marker
+        text = re.sub(r',(\d{2})(?!\d)', r'.\1', text)
+        
+        # Then replace all remaining commas with nothing (they're thousand separators)
+        text = re.sub(r',', '', text)
         
         # Find any number with a decimal point
         price_matches = re.findall(r'\d+\.\d+|\d+', text)
