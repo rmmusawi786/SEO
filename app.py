@@ -1,9 +1,13 @@
 import streamlit as st
 import os
 import pandas as pd
-from utils.database import init_db, get_products, get_settings
-from utils.database_upgrade import upgrade_settings_table, upgrade_products_table
-from utils.scheduler import start_scheduler, get_scheduler_status
+from database import init_db, get_products, get_settings
+from database import upgrade_settings_table, upgrade_products_table
+from scheduler import start_scheduler, get_scheduler_status
+from pages import (
+    monitor_products_page, add_product_page, price_analysis_page,
+    price_management_page, settings_page, multi_product_analysis_page
+)
 
 # Set page configuration
 st.set_page_config(
@@ -26,8 +30,23 @@ scheduler_status = get_scheduler_status()
 if not scheduler_status["running"]:
     start_scheduler()
 
+# Navigation in sidebar
+st.sidebar.title("Navigation")
+page = st.sidebar.radio(
+    "Go to", 
+    [
+        "Home",
+        "Monitor Products",
+        "Add Product",
+        "Price Analysis",
+        "Multi-Product Analysis",
+        "Price Management",
+        "Settings"
+    ]
+)
+
 # Main app
-def main():
+if page == "Home":
     st.title("Price Monitor & Analyzer")
     
     # App description
@@ -55,7 +74,10 @@ def main():
             competitors = set()
             for urls in products_df['competitor_urls']:
                 if urls:
-                    competitors.update(urls.split(','))
+                    if isinstance(urls, dict):
+                        competitors.update(urls.keys())
+                    elif isinstance(urls, list):
+                        competitors.update(range(len(urls)))
             competitor_count = len(competitors)
         else:
             competitor_count = 0
@@ -87,7 +109,6 @@ def main():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.image("https://images.unsplash.com/photo-1714247046156-b575370e5c00")
         st.markdown("""
         ### Price Monitoring
         - Track prices across multiple platforms
@@ -96,7 +117,6 @@ def main():
         """)
     
     with col2:
-        st.image("https://images.unsplash.com/photo-1551288049-bebda4e38f71")
         st.markdown("""
         ### Data Analysis
         - Visualize price trends over time
@@ -116,5 +136,21 @@ def main():
     7. Export suggested prices in JSON or CSV format for your systems
     """)
 
-if __name__ == "__main__":
-    main()
+elif page == "Monitor Products":
+    monitor_products_page()
+elif page == "Add Product":
+    add_product_page()
+elif page == "Price Analysis":
+    price_analysis_page()
+elif page == "Multi-Product Analysis":
+    multi_product_analysis_page()
+elif page == "Price Management":
+    price_management_page()
+elif page == "Settings":
+    settings_page()
+
+# Add a footer
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Price Monitor & Analyzer")
+st.sidebar.markdown("Version 1.0")
+st.sidebar.markdown("© 2025 All Rights Reserved")
